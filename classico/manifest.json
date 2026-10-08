@@ -1,0 +1,9 @@
+{
+  "name": "Tsunami — Na crista da onda",
+  "short_name": "Tsunami",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#102f41",
+  "theme_color": "#092f3c"
+}

@@ -1,9 +1,9 @@
 {
-  "name": "Tsunami — Na crista da onda",
-  "short_name": "Tsunami",
+  "name": "Apocalipse",
+  "short_name": "Apocalipse",
   "start_url": "./",
   "display": "fullscreen",
   "orientation": "landscape",
-  "background_color": "#102f41",
-  "theme_color": "#092f3c"
+  "background_color": "#120c1c",
+  "theme_color": "#120c1c"
 }

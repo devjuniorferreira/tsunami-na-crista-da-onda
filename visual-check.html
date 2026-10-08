@@ -1,27 +1,36 @@
-<!doctype html><meta charset="utf-8"><title>Verificação visual — Tsunami</title>
-<style>body{margin:16px;background:#112b3a;color:#fff;font:12px Arial}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}canvas{width:100%;aspect-ratio:11/6;display:block}h2{font-size:13px}</style>
-<div class="grid" id="grid"></div><script src="engine.js"></script><script src="renderer.js"></script><script src="deluxe-renderer.js"></script><script>
-const samples=[
- ['Corrida — contato com o chão',{runCycle:.12}],
- ['Corrida — recuperação da perna',{runCycle:.4}],
- ['Primeiro tropeço',{trips:1,health:2,stumble:.65,waveFront:175}],
- ['Segundo tropeço — onda próxima',{trips:2,health:1,stumble:.5,waveFront:240}],
- ['Terceiro tropeço — alcançado',{trips:3,health:0,stumble:.4,waveFront:390,state:'caught',caughtTime:1}],
- ['Surfe — carros e destroços',{phase:1,surfY:.4,surfVelocity:-.3,objects:[{x:550,y:.25,type:'car',variant:0},{x:750,y:.6,type:'car',variant:1},{x:950,y:.8,type:'car',variant:2}]}]
-];
-for(const [name,state] of samples){const section=document.createElement('section');const title=document.createElement('h2');title.textContent=name;const canvas=document.createElement('canvas');section.append(title,canvas);document.getElementById('grid').append(section);const game=new TsunamiGame();Object.assign(game,{state:'playing',intro:0,time:5,scroll:1100,speed:260},state);const renderer=new DeluxeRenderer(canvas);renderer.draw(game);}
-</script>
-
-<p id="benchmark">Medindo renderização…</p><script>
-(async()=>{
- const canvas=document.createElement('canvas');canvas.style.cssText='width:1100px;height:600px;position:absolute;left:-2000px';document.body.append(canvas);
- const results=[];
- for(const Renderer of [TsunamiRenderer,DeluxeRenderer]){
-  const renderer=new Renderer(canvas),game=new TsunamiGame();game.start(1);game.intro=0;game.objects=[{x:550,y:.4,type:'car',variant:0},{x:800,y:.7,type:'car',variant:1}];
-  const samples=[];
-  for(let i=0;i<45;i++){game.time=i/60;game.scroll=i*5;const start=performance.now();renderer.draw(game);if(i>=10)samples.push(performance.now()-start);if(i%5===0)await new Promise(requestAnimationFrame);}
-  samples.sort((a,b)=>a-b);results.push(Renderer.name+': mediana '+samples[Math.floor(samples.length/2)].toFixed(2)+' ms, p95 '+samples[Math.floor(samples.length*.95)].toFixed(2)+' ms');
- }
- document.getElementById('benchmark').textContent=results.join(' | ');canvas.remove();
-})();
+<!doctype html><meta charset="utf-8"><title>Apocalipse — verificação visual</title>
+<style>body{margin:16px;background:#2a3140;color:#fff;font:12px Arial}h2{font-size:13px;margin:18px 0 6px}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}figure{margin:0;text-align:center}canvas{image-rendering:pixelated;display:block}.sprite{background:#7fa6b5}.scene{width:550px;height:300px;background:#102f41;overflow:hidden}figcaption{font-size:10px;opacity:.7;margin-top:3px}nav a{color:#ffdc96;margin-right:12px}</style>
+<nav><a href="#cenas">Cenas</a><a href="#sprites">Sprites</a></nav>
+<div id="out"></div>
+<script src="engine.js"></script><script src="pixel.js"></script><script src="renderer.js"></script><script>
+const out=document.getElementById('out');
+function section(id,title){const h=document.createElement('h2');h.id=id;h.textContent=title;const row=document.createElement('div');row.className='row';out.append(h,row);return row;}
+function scene(row,name,setup){const f=document.createElement('figure'),box=document.createElement('div'),c=document.createElement('canvas');box.className='scene';box.append(c);const cap=document.createElement('figcaption');cap.textContent=name;f.append(box,cap);row.append(f);
+ const r=new PixelRenderer(c),g=new ApocalipseGame(()=>.37);g.viewWidth=r.width;setup(g,r);r.draw(g);}
+const objs={
+ 0:[{x:420,type:'log'},{x:760,type:'cooler'}],
+ 1:[{x:520,y:.3,type:'car',variant:0,seed:1},{x:760,y:.65,type:'car',variant:2,seed:2},{x:950,y:.45,type:'debris',seed:3}],
+ 2:[{x:520,y:.3,type:'jelly',seed:1},{x:700,y:.7,type:'wreck',variant:1,seed:2},{x:900,y:.45,type:'jelly',seed:3}],
+ 3:[{lane:0,y:200,type:'pot',warn:0},{lane:2,y:-90,type:'ac',warn:.3},{lane:1,y:60,type:'tv',warn:0}],
+ 4:[{x:560,y:.3,type:'meteor',size:1.3,vx:-100,vy:.1,seed:1},{x:800,y:.7,type:'meteor',size:.8,vx:-60,vy:.2,seed:2},{x:420,y:.05,type:'meteor',size:1,vx:-60,vy:.4,seed:3}],
+ 5:[{x:430,type:'trunk'},{x:780,type:'rock'}]
+};
+const play=section('cenas','Fases');
+for(let p=0;p<6;p++)scene(play,'Fase '+(p+1),(g,r)=>{g.start(p);g.intro=0;g.time=3.3;g.scroll=1600;g.speed=260;g.runCycle=.3;g.objects=objs[p].map(o=>({...o,hit:false}));if(p===1||p===2){g.surfY=.5;g.playerX=300;}if(p===3)g.distance=10;if(p===4){g.surfY=.45;g.health=2;}if(p===0||p===5){g.waveFront=175;g.trips=1;}});
+const extra=section('extra','Momentos');
+scene(extra,'Fase 1 — pulo',(g)=>{g.start(0);g.intro=0;g.time=2;g.scroll=900;g.speed=260;g.y=90;g.vy=200;});
+scene(extra,'Fase 1 — tropeço',(g)=>{g.start(0);g.intro=0;g.time=2;g.scroll=900;g.speed=90;g.stumble=.6;g.trips=2;g.waveFront=240;});
+scene(extra,'Fase 1 — fim (prancha)',(g)=>{g.start(0);g.intro=0;g.time=2;g.scroll=6200;g.speed=260;g.distance=290;g.runCycle=.6;});
+scene(extra,'Fase 4 — topo',(g)=>{g.start(3);g.intro=0;g.time=2;g.scroll=29.3*150;g.distance=29.3;g.runCycle=.5;});
+scene(extra,'Fase 6 — rio',(g)=>{g.start(5);g.intro=0;g.time=2;g.scroll=8800;g.distance=410;g.runCycle=.2;});
+scene(extra,'Fase 3 — tubarão pegou',(g)=>{g.start(2);g.state='caught';g.caughtTime=.8;g.waveFront=400;g.surfY=.5;});
+const open=section('abertura','Abertura');
+for(const t of [1,3.2,4.6,5.2,5.9,7,8.6,9.8])scene(open,'t='+t,(g)=>{g.beginOpening();g.openingTime=t;g.time=t;});
+const trans=section('transicoes','Transições');
+for(let k=0;k<6;k++)for(const t of (k===4?[.9,2.2,3.0,4.4]:[.4,1.5,2.6]))scene(trans,`${k+1}→${k+2} t=${t}`,(g)=>{g.start(k);g.state='transition';g.transitionFrom=k;g.transitionTime=t;g.time=t;g.scroll=1200;g.waveFront=110;});
+const spr=section('sprites','Sprites');
+function showSprite(name,img,zoom=4){const f=document.createElement('figure'),c=document.createElement('canvas');c.className='sprite';c.width=img.width;c.height=img.height;c.getContext('2d').drawImage(img,0,0);c.style.width=img.width*zoom+'px';const cap=document.createElement('figcaption');cap.textContent=name;f.append(c,cap);spr.append(f);}
+Art.hero.run.forEach((c,i)=>showSprite('run'+i,c));for(const [k,v] of Object.entries(Art.hero))if(v instanceof HTMLCanvasElement)showSprite(k,v);Art.hero.climb.forEach((c,i)=>showSprite('climb'+i,c));
+for(const k of ['board','boardUp','rack','log','cooler','debris','pot','ac','tv','rock','trunk','palm','chair','paper','helipad'])showSprite(k,Art[k],3);
+for(const k of ['cars','wreck','jelly','shark','meteor','heli','pine','tree'])Art[k].forEach((c,i)=>showSprite(k+i,c,3));
 </script>
