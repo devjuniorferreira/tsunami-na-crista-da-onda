@@ -2,7 +2,7 @@
 class TsunamiRenderer {
  constructor(canvas){this.canvas=canvas;this.c=canvas.getContext('2d');this.width=1100;this.time=0;this.sprites=new Map();this.resize();}
  resize(){const box=this.canvas.getBoundingClientRect();this.pixelWidth=box.width;this.pixelHeight=box.height;this.dpr=Math.min(devicePixelRatio||1,1.5);this.canvas.width=Math.round(box.width*this.dpr);this.canvas.height=Math.round(box.height*this.dpr);this.scale=Math.min(box.height/600,box.width/660);this.width=box.width/this.scale;this.offsetY=(box.height-600*this.scale)/2;}
- rect(x,y,w,h,color,r=0){const c=this.c;c.fillStyle=color;c.beginPath();c.roundRect(x,y,w,h,r);c.fill();}
+ rect(x,y,w,h,color,r=0){const c=this.c;c.fillStyle=color;c.beginPath();if(r&&c.roundRect)c.roundRect(x,y,w,h,r);else c.rect(x,y,w,h);c.fill();}
  ellipse(x,y,rx,ry,color){const c=this.c;c.fillStyle=color;c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);c.fill();}
  path(points,color,stroke=0){const c=this.c;c.beginPath();points.forEach((p,i)=>i?c.lineTo(...p):c.moveTo(...p));if(stroke){c.strokeStyle=color;c.lineWidth=stroke;c.stroke()}else{c.closePath();c.fillStyle=color;c.fill()}}
  gradient(x,y,x2,y2,stops){const g=this.c.createLinearGradient(x,y,x2,y2);stops.forEach(([p,c])=>g.addColorStop(p,c));return g;}
@@ -105,31 +105,69 @@ class TsunamiRenderer {
  surfWater(g){const c=this.c,W=this.width,t=this.time;this.rect(0,380,W,220,this.gradient(0,380,0,600,[[0,'#2d879c'],[.5,'#17657f'],[1,'#154860']]));for(let i=0;i<18;i++){const yy=385+i*13;c.strokeStyle=i%4?'#9de2d53b':'#e1f2d788';c.lineWidth=i%4?1.5:3;c.beginPath();for(let x=-40;x<W+40;x+=12){const y=yy+Math.sin(x*.013+t*2+i)*7;x===-40?c.moveTo(x,y):c.lineTo(x,y)}c.stroke();}for(let i=0;i<34;i++){const x=((i*59-g.scroll*1.2)%(W+120)+W+120)%(W+120);this.path([[x,405+i%7*25],[x+19,401+i%7*25]],'#c2f0df60',2)}}
  opening(g){
  const c=this.c,W=this.width,t=g.openingTime,smooth=v=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v);};
- this.rect(0,0,W,600,this.gradient(0,0,0,380,[[0,'#6eafc1'],[1,'#ffe0b2']]));this.ellipse(W*.78,113,36,36,'#ffe7b5');
+ // The meteor crosses the whole sky and falls into the sea on the left, where the wave is born.
+ const IMPACT=5,after=t-IMPACT,sx=W*.97,sy=44,ix=W*.15,iy=270,len=Math.hypot(ix-sx,iy-sy),dx=(ix-sx)/len,dy=(iy-sy)/len;
+ const fall=Math.max(0,Math.min(1,(t-3)/(IMPACT-3))),e=fall**1.7,hx=sx+(ix-sx)*e,hy=sy+(iy-sy)*e;
+ this.rect(0,0,W,600,this.gradient(0,0,0,380,[[0,'#6eafc1'],[1,'#ffe0b2']]));
+ // The sky burns orange while the meteor approaches, then slowly clears.
+ if(t>2.4){c.save();c.globalAlpha=smooth((t-2.6)/2.2)*(1-smooth((t-7)/2.5))*.6;this.rect(0,0,W,380,this.gradient(0,0,0,380,[[0,'#3b2846'],[.6,'#d0613f'],[1,'#ffb36b']]));c.restore();}
+ this.ellipse(W*.78,113,36,36,'#ffe7b5');
+ if(t>2.4&&t<3.3){const a=Math.sin(smooth((t-2.4)/.9)*Math.PI),r=4+a*16;c.save();c.globalAlpha=a;this.ellipse(sx,sy,r*.35,r*.35,'#fffbe9');this.path([[sx-r*1.6,sy],[sx+r*1.6,sy]],'#fff6d0',2);this.path([[sx,sy-r*1.6],[sx,sy+r*1.6]],'#fff6d0',2);c.restore();}
  this.rect(0,250,W,205,this.gradient(0,250,0,455,[[0,'#35778e'],[1,'#8dcfc8']]));
  for(let i=0;i<15;i++){const yy=264+i*12;this.path([[0,yy],[W*.3,yy+Math.sin(t*2+i)*3],[W,yy]],'#d6f1db66',2);}
- if(t>1.4){const grow=smooth((t-1.4)/3.6);c.save();c.translate(0,230-grow*70);c.scale(.45+grow*.55,.35+grow*.55);this.wave(110+grow*160,g);c.restore();}
+ if(fall>0&&t<IMPACT){
+  // Reflection on the water, halo, layered fire trail, shed embers and a glowing core.
+  c.save();c.globalAlpha=.25+fall*.4;this.ellipse(hx,262+(hy-sy)*.08,30+fall*50,4+fall*3,'#ffd38a');c.restore();
+  const halo=c.createRadialGradient(hx,hy,0,hx,hy,90+fall*90);halo.addColorStop(0,'#fff3c8cc');halo.addColorStop(.3,'#ff9b4f55');halo.addColorStop(1,'#ff6a3000');this.rect(hx-190,hy-190,380,380,halo);
+  const L=60+fall*300;c.save();c.lineCap='round';
+  for(const [w,col,k] of [[34,'#ff5a2a44',1],[20,'#ff8c3f88',.8],[10,'#ffd27add',.55],[4,'#fffbe9ff',.3]]){c.strokeStyle=this.gradient(hx,hy,hx-dx*L*k,hy-dy*L*k,[[0,col],[1,col.slice(0,7)+'00']]);c.lineWidth=w*(.6+fall*.7);c.beginPath();c.moveTo(hx,hy);c.lineTo(hx-dx*L*k,hy-dy*L*k);c.stroke();}
+  c.restore();
+  for(let i=0;i<22;i++){const u=(i*.137+t*1.9)%1,px=hx-dx*L*u+Math.sin(i*12.9)*16*u,py=hy-dy*L*u+Math.cos(i*7.3)*16*u,r=2.6*(1-u)+.5;this.ellipse(px,py,r,r,i%3?'#ffb35c':'#fff0b0');}
+  this.ellipse(hx,hy,8+fall*6,8+fall*6,'#fff6da');this.ellipse(hx+dx*2,hy+dy*2,4+fall*3,4+fall*3,'#ffc069');
+ }
+ if(after>0){
+  // Shock rings spread across the sea surface.
+  c.save();c.beginPath();c.rect(0,250,W,205);c.clip();c.strokeStyle='#f2fbf0';
+  for(let k=0;k<3;k++){const a=after-k*.35;if(a>0&&a<2.6){const r=30+a*330;c.globalAlpha=(1-a/2.6)*.8;c.lineWidth=4-k;c.beginPath();c.ellipse(ix,iy,r,r*.09,0,0,Math.PI*2);c.stroke();}}
+  c.restore();
+  // Water column, falling spray and a cloud of steam.
+  const up=smooth(after/.45),down=smooth((after-.7)/1.6),h=240*up*(1-down);
+  if(h>2){this.path([[ix-28-h*.1,iy],[ix-12,iy-h],[ix+12,iy-h*.95],[ix+28+h*.1,iy]],'#d9f3eedd');this.ellipse(ix,iy-h,24+h*.13,14+h*.05,'#effcf6');this.ellipse(ix,iy,45+h*.2,8,'#ffffffaa');}
+  for(let i=0;i<30;i++){const s=after*(.8+i%5*.12),ang=-Math.PI/2+(i/29-.5)*2.3,px=ix+Math.cos(ang)*(130+i%7*28)*s,py=iy+Math.sin(ang)*(280+i%4*45)*s+300*s*s,r=2.5+i%3;if(py<iy+4&&s<2.4)this.ellipse(px,py,r,r,'#e8faf3cc');}
+  if(after>.2){const a=after-.2,k=smooth(a/3);c.save();c.globalAlpha=(1-smooth((a-1.5)/3))*.55;for(let i=0;i<7;i++)this.ellipse(ix+(i-3)*44*k+a*10,iy-60-k*120-i%3*25,30+k*50,18+k*26,'#eef1ef');c.restore();}
+ }
+ // Before the tsunami, the sea pulls back and strands fish on the wet sand.
+ const recede=smooth((after-.6)/1.4)*(1-smooth((t-7.8)/1.2)),lift=40*recede;
+ if(recede>0){this.path([[0,426-lift],[W*.5,410-lift],[W,435-lift],[W,440],[0,440]],'#b8986a');this.path([[0,426-lift],[W*.5,410-lift],[W,435-lift]],'#e7f6e6aa',3);
+  for(const [fx,phase] of [[W*.43,0],[W*.62,2.1]]){c.save();c.globalAlpha=smooth((recede-.4)/.3);c.translate(fx,419-lift*.7);c.rotate(Math.sin(t*9+phase)*.35);this.ellipse(0,0,11,4.5,'#c4d6d6');this.path([[9,0],[16,-5],[16,5]],'#9fb7ba');this.ellipse(-6,-1,1.3,1.3,'#203644');c.restore();}}
+ if(t>6){const grow=smooth((t-6.1)/3.4),s=.45+grow*.55;c.save();c.globalAlpha=smooth((t-6)/.6);c.translate(0,230-grow*70);c.scale(s,.35+grow*.55);this.wave((ix+grow*W*.25)/s,g);c.restore();}
  this.path([[0,426],[W*.5,410],[W,435],[W,600],[0,600]],'#e9c591');this.path([[0,426],[W*.5,410],[W,435]],'#f8edc9',8);
  this.palm(W-75,483,1.1);this.ellipse(311,516,95,10,'#b7906680');this.rect(236,508,143,9,'#cc785c',3);
  // Folding chair remains behind when he gets up.
  this.path([[252,439],[289,485],[259,514]],'#e6ddbd',5);this.path([[252,439],[273,489],[321,489],[333,514]],'#e6ddbd',5);this.path([[255,443],[278,481],[312,481]],'#508f94',15);
- const stand=smooth((t-3.8)/.95),run=smooth((t-4.75)/1.3);
- if(t>=4.75){this.person({...g,state:'playing',intro:0,runCycle:(t-4.75)*1.8,y:0,land:0,stumble:0},300+run*W*.6,514);}
+ const stand=smooth((t-6.7)/.9),run=smooth((t-8.1)/1.6);
+ if(t>=8.1){this.person({...g,state:'playing',intro:0,runCycle:(t-8.1)*1.8,y:0,land:0,stumble:0},300+run*W*.6,514);}
  else{
   c.save();c.translate(290,514);c.lineCap='round';c.lineJoin='round';
   const hip=[-4,-32-32*stand],shoulder=[-12+21*stand,-74-31*stand];
   this.path([hip,[27-11*stand,-28],[31,-3]],'#ba805f',9);this.path([hip,[19-26*stand,-29],[6,-3]],'#e5a67c',10);
   this.path([hip,[25-13*stand,-28-10*stand]],'#27485a',15);this.shoe([31,-3],0,true);this.shoe([6,-3],0,false);
   this.path([[hip[0]-10,hip[1]],[shoulder[0]-11,shoulder[1]],[shoulder[0]+12,shoulder[1]],[hip[0]+12,hip[1]]],'#ef865b');
-  const look=smooth((t-2.6)/.6);c.save();c.translate(shoulder[0]+3,shoulder[1]-19);c.rotate(-look*.4);this.ellipse(0,0,12,14,'#e8ac80');this.ellipse(-2,-11,13,6,'#263848');this.rect(-12,-10,6,11,'#263848',3);this.rect(look>.5?-8:7,-2,2.5,3,'#243847');c.restore();
+  // He looks up at the glint, follows the meteor and stares at the impact.
+  const look=smooth((t-2.7)/.5),tilt=t<IMPACT?look*.4:.12,behind=t>=IMPACT||hx<300;
+  c.save();c.translate(shoulder[0]+3,shoulder[1]-19);c.rotate(-tilt);this.ellipse(0,0,12,14,'#e8ac80');this.ellipse(-2,-11,13,6,'#263848');this.rect(-12,-10,6,11,'#263848',3);this.rect(look>.5&&behind?-8:7,-2,2.5,3,'#243847');c.restore();
   this.path([[shoulder[0]+9,shoulder[1]+8],[14,-50-stand*18],[36-stand*8,-55-stand*12]],'#e5a67c',8);
   this.path([[shoulder[0]-7,shoulder[1]+8],[-6,-48],[12,-55]],'#c38762',7);c.restore();
  }
- // Newspaper is an actual drawn prop, then falls and rotates onto the sand.
- const drop=smooth((t-3.5)/.9);c.save();c.translate(315+drop*38,452+drop*51);c.rotate(-.12+drop*1.4+Math.sin(t*2)*.018);this.rect(-27,-27,57,43,'#f3ecd3',1);this.path([[0,-26],[0,15]],'#b8b5a5',1);this.text('JORNAL',-22,-15,8,'#40505a');this.rect(-21,-9,17,12,'#8caba6');for(let i=0;i<5;i++){this.rect(5,-15+i*5,20,1,'#88928c');if(i<2)this.rect(-21,6+i*4,17,1,'#88928c');}c.restore();
- if(t>2.8&&t<4.1){this.text('!',320,370,32,'#fff3c5','center');}
+ // Newspaper is an actual drawn prop; the impact makes him drop it onto the sand.
+ const drop=smooth((t-5.25)/.9);c.save();c.translate(315+drop*38,452+drop*51);c.rotate(-.12+drop*1.4+Math.sin(t*2)*.018);this.rect(-27,-27,57,43,'#f3ecd3',1);this.path([[0,-26],[0,15]],'#b8b5a5',1);this.text('JORNAL',-22,-15,8,'#40505a');this.rect(-21,-9,17,12,'#8caba6');for(let i=0;i<5;i++){this.rect(5,-15+i*5,20,1,'#88928c');if(i<2)this.rect(-21,6+i*4,17,1,'#88928c');}c.restore();
+ if(t>2.7&&t<3.7)this.text('?',322,372,28,'#fff3c5','center');
+ if(t>5.1&&t<6.6)this.text('!',320,370,32,'#fff3c5','center');
+ // Startled gulls flee from the impact.
+ if(after>.2&&after<5){const a=after-.2;for(let i=0;i<4;i++){const bx=W*.32+i*38+a*170,by=205-i%2*18-a*32,f=Math.sin(t*14+i)*5;this.path([[bx-9,by-f],[bx,by],[bx+9,by-f]],'#344a55',2);}}
  this.rect(0,0,W,31,'#0b263bc9');this.rect(0,563,W,37,'#0b263bc9');
- if(t>6)this.rect(0,0,W,600,`rgba(10,30,43,${smooth((t-6)/.5)})`);
+ if(after>0&&after<1){c.save();c.globalAlpha=(1-smooth(after/.9))*.85;this.rect(0,0,W,600,'#fff8e6');c.restore();}
+ if(t>10)this.rect(0,0,W,600,`rgba(10,30,43,${smooth((t-10)/.5)})`);
  }
  transition(g){
  const c=this.c,t=g.transitionTime,smooth=v=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v);};

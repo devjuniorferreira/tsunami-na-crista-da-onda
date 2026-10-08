@@ -44,7 +44,7 @@ test('transition pauses, emits pickup and splash once, and preserves scenery',()
 });
 
 test('opening plays visually timed beats, pauses, and can be skipped safely',()=>{
- const g=new Game();g.beginOpening();tick(g,2.7);assert.equal(g.state,'opening');assert.equal(g.distance,0);assert(g.sounds.includes('warning'));g.pause();const time=g.openingTime;tick(g,1);assert.equal(g.openingTime,time);g.pause();tick(g,4);assert.equal(g.state,'playing');assert(g.distance<5);g.beginOpening();g.finishOpening();assert.equal(g.state,'playing');assert.equal(g.openingFade,.35);assert.equal(g.trips,0);g.finishOpening();assert.equal(g.state,'playing');
+ const g=new Game();g.beginOpening();tick(g,5.1);assert.equal(g.state,'opening');assert.equal(g.distance,0);assert(g.sounds.includes('meteor')&&g.sounds.includes('impact'));assert(g.shake>1);g.pause();const time=g.openingTime;tick(g,1);assert.equal(g.openingTime,time);g.pause();tick(g,5.5);assert.equal(g.state,'playing');assert(g.distance<5);g.beginOpening();g.finishOpening();assert.equal(g.state,'playing');assert.equal(g.openingFade,.35);assert.equal(g.trips,0);g.finishOpening();assert.equal(g.state,'playing');
 });
 
 test('surf movement accelerates, brakes, respects bounds and collision follows the surfer',()=>{
@@ -53,4 +53,7 @@ test('surf movement accelerates, brakes, respects bounds and collision follows t
 });
 test('drag targets steer both axes without snapping or overshooting',()=>{
  const g=new Game(()=>.5);g.start(1);g.intro=0;g.spawn=999;g.update(1/120,{target:{x:430,y:.2}});assert(g.playerX>300&&g.playerX<301);tick(g,2,{target:{x:430,y:.2}});assert(Math.abs(g.playerX-430)<2);assert(Math.abs(g.surfY-.2)<.02);
+});
+test('surf jump needs a short recovery, so constant tapping is not a safe strategy',()=>{
+ const g=new Game(()=>.5);g.start(1);g.intro=0;g.spawn=999;g.jump();assert.equal(g.jumpTime,.9);tick(g,1);assert.equal(g.jumpTime,0);g.jump();assert.equal(g.jumpTime,0,'still recovering');tick(g,1.1);g.jump();assert.equal(g.jumpTime,.9);
 });
