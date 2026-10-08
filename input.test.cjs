@@ -1,0 +1,6 @@
+const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),Game=require('./engine.js');
+test('Up jumps while running, does not repeat, and remains steering during surfing',()=>{
+ let game;const handlers={},elements={};const element=()=>({style:{},classList:{toggle(){}},addEventListener(){},setAttribute(){}});
+ const context={TsunamiGame:class extends Game{constructor(){super();game=this;}},DeluxeRenderer:class{constructor(){this.width=1100}resize(){}},TsunamiAudio:class{constructor(){this.enabled=true}},document:{getElementById(id){return elements[id]??=element()},addEventListener(){},fonts:{ready:new Promise(()=>{})}},window:{addEventListener(name,fn){handlers[name]=fn}},requestAnimationFrame(){},console};
+ vm.createContext(context);vm.runInContext(fs.readFileSync('game.js','utf8'),context);game.start();game.intro=0;handlers.keydown({key:'ArrowUp',repeat:false,preventDefault(){}});assert.equal(game.vy,620);game.vy=123;handlers.keydown({key:'ArrowUp',repeat:true,preventDefault(){}});assert.equal(game.vy,123);game.start(1);game.intro=0;handlers.keydown({key:'ArrowUp',repeat:false,preventDefault(){}});assert.equal(game.jumpTime,0);
+});

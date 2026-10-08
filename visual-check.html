@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>Verificação visual — Tsunami</title>
+<style>body{margin:16px;background:#112b3a;color:#fff;font:12px Arial}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}canvas{width:100%;aspect-ratio:11/6;display:block}h2{font-size:13px}</style>
+<div class="grid" id="grid"></div><script src="engine.js"></script><script src="renderer.js"></script><script src="deluxe-renderer.js"></script><script>
+const samples=[
+ ['Corrida — contato com o chão',{runCycle:.12}],
+ ['Corrida — recuperação da perna',{runCycle:.4}],
+ ['Primeiro tropeço',{trips:1,health:2,stumble:.65,waveFront:175}],
+ ['Segundo tropeço — onda próxima',{trips:2,health:1,stumble:.5,waveFront:240}],
+ ['Terceiro tropeço — alcançado',{trips:3,health:0,stumble:.4,waveFront:390,state:'caught',caughtTime:1}],
+ ['Surfe — carros e destroços',{phase:1,surfY:.4,surfVelocity:-.3,objects:[{x:550,y:.25,type:'car',variant:0},{x:750,y:.6,type:'car',variant:1},{x:950,y:.8,type:'car',variant:2}]}]
+];
+for(const [name,state] of samples){const section=document.createElement('section');const title=document.createElement('h2');title.textContent=name;const canvas=document.createElement('canvas');section.append(title,canvas);document.getElementById('grid').append(section);const game=new TsunamiGame();Object.assign(game,{state:'playing',intro:0,time:5,scroll:1100,speed:260},state);const renderer=new DeluxeRenderer(canvas);renderer.draw(game);}
+</script>
+
+<p id="benchmark">Medindo renderização…</p><script>
+(async()=>{
+ const canvas=document.createElement('canvas');canvas.style.cssText='width:1100px;height:600px;position:absolute;left:-2000px';document.body.append(canvas);
+ const results=[];
+ for(const Renderer of [TsunamiRenderer,DeluxeRenderer]){
+  const renderer=new Renderer(canvas),game=new TsunamiGame();game.start(1);game.intro=0;game.objects=[{x:550,y:.4,type:'car',variant:0},{x:800,y:.7,type:'car',variant:1}];
+  const samples=[];
+  for(let i=0;i<45;i++){game.time=i/60;game.scroll=i*5;const start=performance.now();renderer.draw(game);if(i>=10)samples.push(performance.now()-start);if(i%5===0)await new Promise(requestAnimationFrame);}
+  samples.sort((a,b)=>a-b);results.push(Renderer.name+': mediana '+samples[Math.floor(samples.length/2)].toFixed(2)+' ms, p95 '+samples[Math.floor(samples.length*.95)].toFixed(2)+' ms');
+ }
+ document.getElementById('benchmark').textContent=results.join(' | ');canvas.remove();
+})();
+</script>
