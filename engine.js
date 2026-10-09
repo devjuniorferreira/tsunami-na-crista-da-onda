@@ -19,6 +19,7 @@ const PHASES=[
 const duneHeight=x=>85*Math.sin(x/200)+20*Math.sin(x/77);
 const duneSlope=x=>85/200*Math.cos(x/200)+20/77*Math.cos(x/77);
 const VINE_HANDS=126,VINE_SPACING=360,VINE_REACH=310,SPACE_BOSS_R=230,STORM_START=520;
+const DUCK_TIME=1;
 const LOW_OBSTACLES=new Set(['log','trunk','crack']);
 const START_EVENTS=['A onda invadiu a avenida! Corra até a prancha.','PEGOU A PRANCHA! Arraste na água ou use as setas.','DEBAIXO D’ÁGUA! Fuja do tubarão — IMPULSO acelera.','SUBA O PRÉDIO! Troque de coluna para desviar.','DECOLAMOS! Desvie dos meteoros.','DESÇA DE BICICLETA! Pule pedras e fendas, abaixe nos galhos.','SEGURE nas descidas, SOLTE nos topos para voar!','SEGURE para agarrar o cipó, SOLTE para se lançar!','O LAGO CONGELOU! Deslize… e cuidado, não dá para frear.','GRAVIDADE ZERO! Atravesse os asteroides.'];
 const CHASE_EVENTS={
@@ -64,7 +65,8 @@ class ApocalipseGame {
   else if((kind==='surf'||kind==='swim')&&this.jumpTime<=0&&this.jumpCooldown<=0){this.jumpTime=kind==='surf'?.9:.6;this.jumpCooldown=2;this.sounds.push(kind==='surf'?'jump':'dash');}
  }
  duck(){if(this.state!=='playing'||this.intro>0||this.stumble>0||this.config.kind!=='bike')return;if(this.y===0)this.startDuck();else this.duckBuffer=.16;}
- startDuck(){if(this.duckTime<=0)this.sounds.push('step');this.duckTime=.5;this.duckBuffer=0;}
+ // A tap keeps him low for a full second; holding the key keeps him down for as long as it is held.
+ startDuck(){if(this.duckTime<=0)this.sounds.push('step');this.duckTime=Math.max(this.duckTime,DUCK_TIME);this.duckBuffer=0;}
  move(direction){if(this.state!=='playing'||this.intro>0||this.config.kind!=='climb')return;const lane=Math.max(0,Math.min(2,this.lane+direction));if(lane!==this.lane){this.lane=lane;this.sounds.push('step');}}
  takeoff(){this.sounds.push('jump');this.vy=620;this.jumpBuffer=0;this.land=0;this.duckTime=0;}
  hit(obstacle){
@@ -93,11 +95,12 @@ class ApocalipseGame {
   this.invincible=Math.max(0,this.invincible-dt);this.land=Math.max(0,this.land-dt);this.jumpBuffer=Math.max(0,this.jumpBuffer-dt);
   if(this.intro>0){this.intro=Math.max(0,this.intro-dt);return;}
   const kind=this.config.kind;
-  if(kind==='run'||kind==='bike')this.updateRun(dt);else if(kind==='climb')this.updateClimb(dt);else if(kind==='dune')this.updateDune(dt,input);else if(kind==='vine')this.updateVine(dt,input);else if(kind==='space')this.updateSpace(dt,input);else this.updateSteer(dt,input);
+  if(kind==='run'||kind==='bike')this.updateRun(dt,input);else if(kind==='climb')this.updateClimb(dt);else if(kind==='dune')this.updateDune(dt,input);else if(kind==='vine')this.updateVine(dt,input);else if(kind==='space')this.updateSpace(dt,input);else this.updateSteer(dt,input);
   if(this.state==='playing'&&this.distance>=this.config.goal)this.finishPhase();
  }
- updateRun(dt){
+ updateRun(dt,input={}){
   const cfg=this.config,bike=cfg.kind==='bike';this.stumble=Math.max(0,this.stumble-dt);this.duckTime=Math.max(0,this.duckTime-dt);this.duckBuffer=Math.max(0,this.duckBuffer-dt);
+  if(bike&&input.duck&&this.y===0&&this.stumble===0&&this.jumpBuffer===0)this.duckTime=Math.max(this.duckTime,.2);
   this.speed+=((this.stumble>0?(bike?120:85):cfg.speed)-this.speed)*(1-Math.exp(-dt*(this.stumble>0?14:6)));
   const travel=this.speed*dt;this.scroll+=travel;this.distance+=travel*12/260;
   if(this.jumpBuffer>0&&this.y===0&&this.stumble===0)this.takeoff();
@@ -105,7 +108,7 @@ class ApocalipseGame {
   if(this.y===0){this.vy=0;if(wasAirborne){this.land=.16;this.sounds.push('land');if(this.duckBuffer>0&&this.stumble===0)this.startDuck();}this.runCycle+=travel/(bike?120:148);}
   while(this.courseIndex<this.course.length&&this.course[this.courseIndex].position<=this.scroll+this.viewWidth+90){const item=this.course[this.courseIndex++];this.objects.push({x:300+item.position-this.scroll+travel,type:item.type,hit:false});}
   if(!this.tutorialShown&&this.objects.some(o=>o.x>340&&o.x<420)){this.tutorialShown=true;if(this.phase===0)this.event='PULE AGORA · toque em PULAR ou aperte espaço';if(bike)this.event='PULE A PEDRA · PULAR ou espaço';}
-  if(bike&&!this.duckTutorial&&this.objects.some(o=>o.type==='branch'&&o.x>340&&o.x<480)){this.duckTutorial=true;this.event='GALHO BAIXO! ABAIXE · botão ABAIXAR ou ↓';}
+  if(bike&&!this.duckTutorial&&this.objects.some(o=>o.type==='branch'&&o.x>340&&o.x<480)){this.duckTutorial=true;this.event='GALHO BAIXO! SEGURE ↓ ou ABAIXAR até passar';}
   // A branch is only passed ducking on the ground; jumping into it hits the head.
   for(const o of this.objects){o.x-=travel;if(o.hit)continue;const branch=o.type==='branch',near=Math.abs(o.x-300)<(o.type==='crack'?48:40);
    if(near&&(branch?!(this.duckTime>0&&this.y===0):this.y<(LOW_OBSTACLES.has(o.type)?27:43)))this.hit(o);}
