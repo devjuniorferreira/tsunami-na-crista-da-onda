@@ -42,7 +42,8 @@ class PixelRenderer {
    c.fillStyle=k[6];c.fillRect(x,top,1,u<face?1:2);
    if(kind==='lava'&&u>8&&(x*13+Math.floor(t*6))%17===0){c.fillStyle=k[0];c.fillRect(x,top+2,1,2);}
   }
-  for(let i=-5;i<lip;i++){const x=front+i,v=(i+5)/(lip+5),top=Math.round(crestY-2+v*v*12),bottom=Math.round(crestY+4+v*(kind==='wave'?10:3));c.fillStyle=i>lip-4?k[6]:k[1];c.fillRect(x,top,1,Math.max(1,bottom-top));}
+  // The lip grows out of the crest (where the face reaches full height) and curls forward, so it stays attached to the wave.
+  for(let i=-face;i<lip;i++){const x=front+i,v=(i+face)/(lip+face),top=Math.round(crestY-2+v*v*(kind==='wave'?16:6)-Math.max(0,-i)*tilt),th=Math.round((kind==='wave'?7:4)*(1-v*.6)+1);c.fillStyle=i>lip-4?k[6]:k[1];c.fillRect(x,top,1,th);c.fillStyle=k[6];c.fillRect(x,top,1,1);}
   c.fillStyle=k[6];
   for(let i=0;i<14;i++){const x=front-((i*7+t*30)%42),y=crestY-2-((i*13+t*40)%10);c.fillRect(Math.round(x),Math.round(y),1,1);}
   for(let i=0;i<10;i++){const x=front+(i*5+t*50)%14-2,y=groundY-((i*7+t*55)%16);c.fillRect(Math.round(x),Math.round(y),i%3?1:2,1);}
@@ -60,6 +61,14 @@ class PixelRenderer {
  smokePlume(s,x,base,top,color,core){const steps=Math.ceil((base-top)/4);for(let i=0;i<=steps;i++){const k=i/steps,y=base-k*(base-top),r=3+k*15,cx=x+Math.sin(k*4)*5+k*12;s.ditherDisc(cx,y,r,color,.85-k*.45);s.ditherDisc(cx-r*.25,y-r*.25,r*.55,core,.65-k*.4);}}
  skylineStrip(name,base,colors,lights,seed){return this.layer('skyline-'+name,256,base,(s,w,h)=>{const r=seededRandom(seed);for(let x=0;x<w;){const bw=10+Math.floor(r()*16),bh=14+Math.floor(r()*(h-20)),c=colors[Math.floor(r()*colors.length)];s.rect(x,h-bh,bw-1,bh,c);if(r()<.4)s.rect(x+Math.floor(bw/2),h-bh-5,1,5,c);for(let j=h-bh+3;j<h-3;j+=4)for(let i=x+2;i<x+bw-3;i+=3)if(r()<lights)s.plot(i,j,r()<.7?'#f7c46a':'#ffe9a8');x+=bw;}});}
  cloudStrip(name,colors,seed){return this.layer('clouds-'+name,300,50,(s,w)=>{const r=seededRandom(seed);for(let k=0;k<4;k++){const cx=20+k*75+r()*20,cy=14+r()*24;for(let i=0;i<4;i++)s.ellipse(cx+i*9-12,cy-(i%2)*3,9+r()*5,4+r()*2,colors[0]);s.dither(cx-24,cy-7,50,4,colors[1],.5);}});}
+ // Clouds lit from one edge: body, shade and a bright rim.
+ litClouds(name,[body,shade,rim],seed){return this.layer('litclouds-'+name,300,50,(s,w)=>{const r=seededRandom(seed);for(let k=0;k<4;k++){const cx=20+k*75+r()*20,cy=14+r()*24;for(let i=0;i<5;i++)s.ellipse(cx+i*9-16,cy-(i%2)*3,9+r()*5,4+r()*2,body);s.dither(cx-26,cy-8,56,5,shade,.45);for(let i=0;i<5;i++)s.rect(cx+i*9-22,cy+4-(i%2)*2,12,1,rim);}});}
+ // Soft light: a radial gradient added on top of what is already drawn, so it brightens instead of covering.
+ glow(x,y,r,color,strength=.5){if(r<=0||strength<=0)return;const c=this.c,n=parseInt(color.slice(1),16),rgb=`${n>>16},${(n>>8)&255},${n&255}`,g=c.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,`rgba(${rgb},${strength})`);g.addColorStop(.45,`rgba(${rgb},${strength*.35})`);g.addColorStop(1,`rgba(${rgb},0)`);c.save();c.globalCompositeOperation='lighter';c.fillStyle=g;c.fillRect(x-r,y-r,r*2,r*2);c.restore();}
+ gulls(t,n,y0,color='#2a2a3a'){for(let i=0;i<n;i++){const u=(t*.05+i*.37)%1,x=this.W+20-u*(this.W+40),y=y0+i*7+Math.sin(t*2+i)*3,f=Math.floor(t*7+i)%2;this.rect(x-3,y-f,3,1,color);this.rect(x,y,1,1,color);this.rect(x+1,y-f,3,1,color);}}
+ // A shimmering column of light on water under a low sun.
+ glitter(x,y0,y1,t,color,width=10){for(let y=y0;y<y1;y+=2){const k=(y-y0)/(y1-y0),w=Math.max(1,Math.round(width*(1-k*.5)*(.6+.4*Math.sin(t*4+y*1.7))));this.alpha(.55*(1-k*.6),()=>this.rect(x-w/2+Math.sin(t*3+y)*2,y,w,1,color));}}
  towersLayer(){return this.layer('towers',this.W,120,(s,w,h)=>{const r=seededRandom(77);for(let x=0;x<w;){const bw=16+Math.floor(r()*22),bh=40+Math.floor(r()*70);s.rect(x,h-bh,bw-2,bh,r()<.5?'#3a2c4c':'#33284a');for(let j=h-bh+4;j<h;j+=6)for(let i=x+2;i<x+bw-4;i+=4)if(r()<.2)s.plot(i,j,'#f7c46a');x+=bw+4;}});}
 
  /* ---------- Phase 1: the avenue ---------- */
@@ -70,7 +79,9 @@ class PixelRenderer {
    s.vgrad(0,112,w,16,['#2f6f86','#3f8ea0','#5aa9b0']);for(let k=0;k<30;k++)s.rect((k*37)%w,114+(k*5)%12,4+k%3*2,1,'#8fd0cf');
    s.rect(0,127,w,10,'#d8b98a');s.dither(0,129,w,8,'#c4a376',.3);s.rect(0,127,w,1,'#f1e6c8');
   }),0,0);
-  this.strip(this.cloudStrip('dusk',['#6a3f63','#9a5568'],3),scroll*.03,8);
+  this.glow(W*.78,63,70,'#ff8a4a',.28);
+  this.strip(this.litClouds('dusk',['#6a3f63','#583454','#f09a7a'],3),scroll*.03,8);
+  this.glitter(Math.round(W*.78),113,127,g.time,'#ffe2a8',12);this.gulls(g.time,3,30);
   this.strip(this.skylineStrip('avenue',64,['#3a3456','#463d63','#2f2b4a'],.25,11),scroll*.12,56);
   for(let k=0;k<10;k++){const x=((k*53-scroll*.3)%W+W)%W;this.rect(x,114+(k*7)%12,3,1,'#d6f3ee');}
   const near=scroll*.55;
@@ -83,7 +94,7 @@ class PixelRenderer {
    b(110,1);b(220,2);
    for(const lx of [92,175,265]){s.rect(lx,20,2,52,'#334d5c');s.rect(lx-4,18,8,2,'#334d5c');s.rect(lx-3,20,6,1,'#ffe5a7');}
   }),near,75);
-  for(let id=Math.floor((near-60)/330);id*330-near<W+60;id++)this.foot(Art.palm,id*330-near+55,149);
+  for(let id=Math.floor((near-60)/330);id*330-near<W+60;id++){this.foot(Art.palm,id*330-near+55,149);for(const lx of [92,175,265])this.glow(id*330-near+lx+1,96,12,'#ffd9a0',.45);}
   // Railing, promenade and road scroll with the runner.
   this.rect(0,136,W,1,'#6e7f7c');this.rect(0,141,W,1,'#6e7f7c');for(let x=-(Math.round(scroll)%23);x<W;x+=23)this.rect(x,136,2,11,'#536a6b');
   this.rect(0,147,W,7,'#b9a68c');for(let x=-(Math.round(scroll)%12);x<W;x+=12)this.rect(x,147,1,7,'#a39078');
@@ -106,7 +117,10 @@ class PixelRenderer {
    else this.hero('run',Math.floor(g.runCycle*8),100,y);
   }
   if(g.stumble>0)for(let i=0;i<6;i++){const u=(t*2+i*.17)%1;this.rect(92-u*14,GROUND-u*6,2,1,'#c9b48e');}
-  this.wall(X(g.waveFront),GROUND+4,52,'wave',t);
+  // The wave throws a shadow and spray onto the road ahead of it, with a car tumbling inside.
+  const wf=X(g.waveFront);this.alpha(.28,()=>{this.rect(wf,157,22,43,'#0d2a3a');this.rect(wf+22,157,14,43,'#0d2a3a');});this.alpha(.35,()=>this.rect(wf,157,40,2,'#bfeaf0'));
+  this.wall(wf,GROUND+4,52,'wave',t);
+  for(let i=0;i<24;i++){const u=(t*1.5+i*.041)%1,a=-1.2+((i*7)%10)/10*1.4,d=4+u*26;this.alpha(1-u,()=>this.rect(wf+2+Math.cos(a)*d,GROUND-6+Math.sin(a)*d*1.3+u*u*14,i%3?1:2,1,'#effcff'));}
   this.shade(g);
  }
 
@@ -114,10 +128,20 @@ class PixelRenderer {
  waterBase(g,scroll){
   const W=this.W;
   this.img(this.skyLayer('storm',['#141a33','#2a2a4f','#523458','#8a4558','#c66a5a','#c66a5a'],(s,w)=>{s.ditherDisc(w*.8,40,13,'#f0a07a',.3);s.disc(w*.8,40,7,'#f0b48a');}),0,0);
-  this.strip(this.cloudStrip('storm',['#2c2440','#4a3550'],9),scroll*.05,6);
+  const t=g.time,bolt=(t*.9)%4.3<.14;
+  if(bolt){const bx=Math.round(W*(.25+((Math.floor(t*.9/4.3)*37)%50)/100));let x=bx,y=0;for(let k=0;k<10;k++){const nx=x+((k*5)%7)-3,ny=y+7;this.line(x,y,nx,ny,'#f4f0ff');x=nx;y=ny;}}
+  this.glow(W*.8,40,40,'#f08a6a',.22);if(bolt)this.glow(W*.5,20,140,'#c8c0ff',.3);
+  this.strip(this.litClouds('storm',['#2c2440','#221c34','#6a4a6a'],9),scroll*.05,6);
   this.strip(this.skylineStrip('flooded',64,['#2a2742','#332e4f','#252238'],.12,23),scroll*.12,70);
   this.img(this.layer('flood',W,73,(s,w,h)=>s.vgrad(0,0,w,h,['#3f8ea0','#2a6f8a','#1d4f6e','#163a57'])),0,127);
+  // The flooded city mirrors itself in the water.
+  this.reflect(127,()=>this.strip(this.skylineStrip('flooded',64,['#2a2742','#332e4f','#252238'],.12,23),scroll*.12,70),.3);
+  this.glitter(Math.round(W*.8),129,150,t,'#f0b48a',8);
   for(let k=0;k<12;k++){const y=129+k*6,step=18+k%3*4,o=((scroll*(1+k*.08)+k*7)%step+step)%step;for(let x=-o;x<W;x+=step)this.rect(x+Math.sin(g.time*2+k+x*.1)*1.5,y,5+k%3*2,1,k%3?'#5aa3b2':'#9fd8d2');}
+  for(let i=0;i<6;i++){const x=((i*71-scroll*1.1)%(W+30)+W+30)%(W+30)-15,y=136+(i*13)%50+Math.sin(t*2+i)*1.5;this.rect(x,y,6+(i%3)*2,2,i%2?'#7a5a3a':'#5a4a3a');this.rect(x,y+2,6+(i%3)*2,1,'#2a6f8a');}
+  // Rain, and the flash of lightning.
+  this.alpha(.6,()=>{for(let i=0;i<90;i++){const x=((i*29+t*150)%(W+40))-20,y=((i*47+t*260)%220)-10;this.rect(x,y,1,3,'#c8d4f0');this.rect(x-1,y+3,1,3,'#9aa8d0');}});
+  if(bolt)this.fill('#e8e0ff',.18);
  }
  surfPhase(g){
   const t=g.time,scroll=g.scroll/PX;this.waterBase(g,scroll);
@@ -135,10 +159,18 @@ class PixelRenderer {
   this.img(this.skyLayer('deep',['#58b8c8','#2f8eae','#1f6890','#164a72','#0f3156','#0b2442','#0a1d38']),0,0);
   this.alpha(.08,()=>{const c=this.c;c.fillStyle='#e8fff8';for(let k=0;k<6;k++){const x=k*W/6+Math.sin(t*.4+k)*6;c.beginPath();c.moveTo(x,0);c.lineTo(x+12,0);c.lineTo(x-28,150);c.lineTo(x-44,150);c.fill();}});
   for(let x=0;x<W;x+=4)this.rect(x,Math.round(2+Math.sin(x*.2+t*3)*1.5),4,1,'#bdf2ee');
+  for(let k=0;k<4;k++)this.glow(((k*W/3.5+Math.sin(t*.4+k)*12)%W+W)%W,0,50,'#c8fff4',.16);
+  // A whale glides far behind the ruins.
+  {const u=(t*.02)%1,wx=W+80-u*(W+200),wy=58+Math.sin(t*.3)*4;this.alpha(.22,()=>{this.blob(wx,wy,12,'#0a2a48');this.blob(wx+16,wy+1,9,'#0a2a48');this.blob(wx+28,wy+2,5,'#0a2a48');this.rect(wx+30,wy-2,8,3,'#0a2a48');});}
   this.strip(this.layer('ruins',260,96,(s,w,h)=>{const r=seededRandom(31);for(let x=0;x<w;){const bw=18+Math.floor(r()*20),bh=30+Math.floor(r()*60);s.rect(x,h-bh,bw-3,bh,'#123a5c');for(let j=h-bh+4;j<h-4;j+=7)for(let i=x+3;i<x+bw-6;i+=5)s.rect(i,j,2,3,'#0d2d49');if(r()<.5)s.poly([[x,h-bh],[x+bw-3,h-bh+6],[x+bw-3,h-bh]],'#0f3352');x+=bw+Math.floor(r()*10);}}),scroll*.2,92);
   this.strip(this.layer('seabed',200,22,(s,w,h)=>{s.vgrad(0,4,w,h-4,['#c2a46e','#a88a58','#8a703f']);for(let x=0;x<w;x++)s.rect(x,3+Math.round(Math.sin(x*.15)*2),1,3,'#d6bb84');const r=seededRandom(8);for(let k=0;k<10;k++){const x=r()*w;s.ellipse(x,8+r()*8,3+r()*4,2+r()*2,'#6c6a72');}for(let k=0;k<6;k++)s.plot(r()*w,10+r()*10,'#f2d8c0');}),scroll*.8,180);
   for(let id=Math.floor((scroll*.8-20)/37);id*37-scroll*.8<W+20;id++){const x=id*37-scroll*.8+(((id*13)%17)+17)%17,h=10+((((id*7)%4)+4)%4)*5;for(let j=0;j<h;j++)this.rect(x+Math.sin(t*1.8+j*.35+id)*(j*.18),186-j*1.6,2,2,j%2?'#2f7a4a':'#3f9a5a');}
   for(let i=0;i<7;i++){const x=(W+40)-((t*18+i*53)%(W+80)),y=60+((i*37)%70)+Math.sin(t*2+i)*3;this.rect(x,y,3,2,'#e0b64a');this.rect(x+3,y,1,2,'#c69a3a');}
+  // Light caustics dance on the seabed.
+  this.alpha(.7,()=>{for(let x=0;x<W;x+=2)for(const y of [181,185,189,193])if(Math.sin(x*.21+t*2.6+y)+Math.sin(x*.09-t*1.7+y*.3)>1.15)this.rect(x,y+Math.round(Math.sin(x*.1+t)),2,1,'#fff0c0');});
+  // A school of fish turning together, and marine snow drifting down.
+  for(const [k,sp] of [[0,24],[1,17]]){const sx=((W+60)-((t*sp+k*170)%(W+160))),sy=55+k*40+Math.sin(t*.7+k)*14;for(let i=0;i<16;i++){const fx=sx+(i*13)%34+Math.sin(t*2.5+i)*3,fy=sy+(i*7)%16+Math.sin(t*1.8+i*.9)*2;this.rect(fx,fy,3,2,'#bcdcec');this.rect(fx,fy,3,1,'#5a8aa8');this.rect(fx+3,fy-1,1,1,'#7aa8c4');this.rect(fx+3,fy+2,1,1,'#7aa8c4');}}
+  for(let i=0;i<30;i++){const x=((i*37+Math.sin(t*.5+i)*8)%W+W)%W,y=(i*29+t*6)%190;this.rect(x,y,1,1,'#9ad0dc');}
  }
  swimPhase(g){
   const t=g.time,scroll=g.scroll/PX;this.underwater(g,scroll);
@@ -147,9 +179,13 @@ class PixelRenderer {
   for(let i=0;i<8;i++){const u=(t*.9+i*.125)%1;this.rect(px+8+Math.sin(i*3+t*3)*2,py-14-u*40,1+(i%2),1+(i%2),'#cdf6f4');}
   if(g.jumpTime>0)for(let i=0;i<10;i++)this.rect(px-18-i*3,py-10+Math.sin(i+t*20)*2,2,1,'#e8fffb');
   this.sharkY+=(py-12-this.sharkY)*.06;
-  const sx=g.state==='caught'?Math.min(px-28,X(g.waveFront)-30+g.caughtTime*40):X(g.waveFront)-30;
-  if(g.state==='caught'){this.spin(Art.hero.diveTumble,px,py-10,Math.sin(g.caughtTime*12)*.4);this.center(Art.shark[2],sx,this.sharkY);this.fill('#a81e2a',Math.min(.35,g.caughtTime*.4));}
-  else{if(!this.blink(g))this.hero('dive',Math.floor(g.runCycle*(g.jumpTime>0?8:4)),px,py);this.center(Art.shark[Math.floor(t*5)%2],sx,this.sharkY+Math.sin(t*3)*2);}
+  // Only the shark's huge head shows, coming out of the dark at the left edge; its snout is where the chase front is.
+  const snout=g.state==='caught'?Math.min(px+8,X(g.waveFront)+g.caughtTime*40):X(g.waveFront),bite=g.state==='caught'?2:Math.floor(t*(g.trips>=2?4:2.5))%2,c=this.c;
+  const dark=c.createLinearGradient(0,0,Math.max(1,snout),0);dark.addColorStop(0,'rgba(4,10,20,.7)');dark.addColorStop(1,'rgba(4,10,20,0)');c.fillStyle=dark;c.fillRect(0,0,Math.max(1,snout),200);
+  // The body goes on past the left edge: the sprite's first column is stretched out to the screen border.
+  const drawShark=()=>{const img=(Art.sharkHead||Art.shark)[bite],y=Math.round(this.sharkY+Math.sin(t*3)*2-40*1.5),left=Math.round(snout-96*1.5);if(left>0)c.drawImage(img,1,0,1,img.height,0,y,left,img.height);this.img(img,left,y);for(let i=0;i<4;i++){const u=(t*1.5+i*.25)%1;this.rect(snout-30+Math.sin(i*3)*6,y+10-u*20,2,2,'#cdf6f4');}};
+  if(g.state==='caught'){this.spin(Art.hero.diveTumble,px,py-10,Math.sin(g.caughtTime*12)*.4);drawShark();this.fill('#a81e2a',Math.min(.35,g.caughtTime*.4));}
+  else{if(!this.blink(g))this.hero('dive',Math.floor(g.runCycle*(g.jumpTime>0?8:4)),px,py);drawShark();}
   this.shade(g);
  }
 
@@ -157,11 +193,15 @@ class PixelRenderer {
  tower(g,scroll,roofY=-999){
   const W=this.W,cx=Math.round(W/2),x0=cx-70;
   this.img(this.skyLayer('dusk2',['#231b3a','#4a2a4f','#8a3e4f','#c9644e','#e89a5a']),0,0);
+  this.strip(this.litClouds('dusk-tower',['#6a3a58','#4a2a4a','#f0a070'],41),g.time*4,20);
   this.img(this.towersLayer(),0,90+Math.min(130,scroll*.08));
+  // Neighbouring buildings pass by on both sides, slower than the one being climbed.
+  for(const side of [-1,1]){const bx=side<0?x0-40:x0+150,o=Math.round(scroll*.45)%34;this.alpha(.8,()=>{this.rect(bx,0,30,200,'#2c2440');this.rect(side<0?bx+27:bx,0,3,200,'#221c34');for(let y=-34+o;y<200;y+=34)for(const wx2 of [bx+5,bx+17]){const lit=((wx2+Math.floor((scroll*.45-o)/34)*3+y)%5+5)%5===0;this.rect(wx2,y+8,7,11,lit?'#8a6a48':'#1e2238');}});}
+  this.gulls(g.time,2,40,'#3a2a3a');
   const top=Math.max(0,Math.round(roofY));this.rect(x0,top,140,200-top,'#7d8494');this.rect(x0,top,4,200-top,'#9aa1b0');this.rect(x0+134,top,6,200-top,'#5d6372');
   const off=Math.round(scroll)%50;
   for(let y=-50+off;y<200;y+=50){if(y<roofY)continue;this.rect(x0-3,y,146,3,'#a3a9b6');this.rect(x0-3,y+3,146,1,'#4f5563');
-   for(const wx of [cx-55,cx-18,cx+18,cx+55]){if(y+12<roofY)continue;const lit=((wx+Math.floor((scroll-off)/50)*7+y)%5+5)%5===0;this.rect(wx-6,y+12,12,20,'#5d6372');this.rect(wx-5,y+13,10,18,lit?'#f2c46a':'#3e5a78');if(!lit){this.rect(wx-4,y+14,2,6,'#7fa3c2');this.rect(wx-2,y+14,1,3,'#7fa3c2');}this.rect(wx-6,y+31,12,2,'#a3a9b6');}}
+   for(const wx of [cx-55,cx-18,cx+18,cx+55]){if(y+12<roofY)continue;const lit=((wx+Math.floor((scroll-off)/50)*7+y)%5+5)%5===0;this.rect(wx-6,y+12,12,20,'#5d6372');this.rect(wx-5,y+13,10,18,lit?'#f2c46a':'#3e5a78');if(!lit){this.rect(wx-4,y+14,2,6,'#7fa3c2');this.rect(wx-2,y+14,1,3,'#7fa3c2');}else{this.rect(wx-5,y+13,3,18,'#d8844a');this.rect(wx+2,y+13,3,18,'#d8844a');}this.rect(wx-6,y+31,12,2,'#a3a9b6');}}
   for(const lc of [cx-37,cx,cx+37]){this.rect(lc-6,top,1,200-top,'#3b3d4f');this.rect(lc+5,top,1,200-top,'#3b3d4f');for(let y=-6+Math.round(scroll)%6;y<200;y+=6)if(y>roofY)this.rect(lc-5,y,10,1,'#55596a');}
   if(roofY>-40){this.rect(x0-4,roofY-6,148,6,'#9aa1b0');this.rect(x0-4,roofY,148,2,'#4f5563');}
  }
@@ -171,6 +211,8 @@ class PixelRenderer {
   const px=cx+(g.laneX-1)*37;
   if(!this.blink(g)||g.state==='caught')this.hero('climb',Math.floor(g.runCycle*4),px,143);
   const water=Math.round(196-(g.waveFront-110)*.25);this.alpha(.85,()=>this.rect(0,water,this.W,200-water,'#2a7f9c'));
+  // The sunset and the building shimmer on the rising water.
+  this.alpha(.25,()=>this.rect(cx-70,water+2,140,200-water,'#9aa1b0'));this.glitter(cx+90,water+2,200,t,'#f0b070',10);
   for(let x=0;x<this.W;x+=3)this.rect(x,water+Math.round(Math.sin(x*.25+t*4)),3,1,'#cdf2ec');
   for(let i=0;i<4;i++)this.foot(i%2?Art.debris:Art.log,((i*97+t*12)%(this.W+40))-20,water+5);
   this.shade(g);
@@ -181,14 +223,20 @@ class PixelRenderer {
   const W=this.W,t=g.time;
   this.img(this.skyLayer('inferno',['#120c1c','#2c1430','#5a1c34','#962c32','#d0502e','#f08a3a'],(s,w)=>{[.07,.3,.5,.72,.92].forEach((f,k)=>this.smokePlume(s,f*w,200,30+((k*37)%50),'#2a1626','#3a1e30'));}),0,0);
   for(let i=0;i<4;i++){const u=(t*.35+i*.27)%1,x=W*(1.1-u*1.3)+i*40,y=-10+u*120;this.meteorTrail(x,y,-60,40,14,t,.5);this.rect(x-1,y-1,3,3,'#ffe6a0');}
-  this.strip(this.cloudStrip('ember',['#3a2030','#7a3a3a'],17),scroll*.4,30);
+  this.strip(this.litClouds('ember',['#3a2030','#2a1424','#e8603a'],17),scroll*.4,30);
+  // Smoke rolls across the sky in front of the plumes.
+
   this.strip(this.layer('burning',240,50,(s,w,h)=>{const r=seededRandom(4);for(let x=0;x<w;){const bw=8+Math.floor(r()*14),bh=10+Math.floor(r()*36);s.rect(x,h-bh,bw-1,bh,'#1c1020');if(r()<.6)s.rect(x+2,h-bh-2,bw-5,3,'#ff7a2a');x+=bw;}}),scroll*.1,150);
   for(let k=0;k<14;k++){const x=((k*41-scroll*.1)%W+W)%W,y=150+((k*13)%30);this.rect(x,y-Math.abs(Math.sin(t*9+k))*3,2,3,k%2?'#ffb03a':'#ff6a2a');}
+  // Windows still lit in the burning city, and embers rising from it.
+  this.strip(this.layer('burning-lights',240,50,(s,w,h)=>{const r=seededRandom(4);for(let x=0;x<w;){const bw=8+Math.floor(r()*14),bh=10+Math.floor(r()*36);r();for(let j=h-bh+4;j<h-2;j+=4)for(let i=x+2;i<x+bw-3;i+=3)if(r()<.2)s.plot(i,j,r()<.5?'#ff9a3a':'#ffd36a');x+=bw;}},),scroll*.1,150);
+  for(let i=0;i<26;i++){const u=(t*.35+i*.038)%1,x=((i*53+Math.sin(t+i)*10-scroll*.15)%W+W)%W,y=200-u*170;this.alpha(1-u,()=>this.rect(x,y,1+(i%2),1+(i%2),u<.5?'#ffd36a':'#ff6a2a'));}
+  for(let x=20;x<W;x+=70)this.glow(x+Math.sin(t+x)*6,186,46,'#ff5a1a',.22);
  }
  rotor(x,y,t,fast=30){const blade=Math.floor(t*fast)%2?22:8;this.rect(x-blade,y-13,blade*2,1,'#20202a');this.alpha(.3,()=>this.rect(x-24,y-14,48,1,'#20202a'));}
  heliPhase(g){
   const t=g.time,scroll=g.scroll/PX;this.inferno(g,scroll);
-  for(const o of g.objects){const img=Art.meteor[o.size<.95?0:o.size<1.15?1:2],x=X(o.x),y=X(90+o.y*420);this.meteorTrail(x,y,-(g.speed-(o.vx||0)),o.vy*420,10+img.width,t,o.size);this.spin(img,x,y,t*2+o.seed);}
+  for(const o of g.objects){const img=Art.meteor[o.size<.95?0:o.size<1.15?1:2],x=X(o.x),y=X(90+o.y*420);this.glow(x,y,img.width*1.6,'#ff7a2a',.35);this.meteorTrail(x,y,-(g.speed-(o.vx||0)),o.vy*420,10+img.width,t,o.size);this.spin(img,x,y,t*2+o.seed);}
   const px=X(g.playerX),py=X(90+g.surfY*420);
   if(g.health<3)this.group(.65,()=>{for(let i=0;i<8;i++){const u=(t*1.4+i*.125)%1;this.blob(px-20-u*40,py-2-u*10+Math.sin(i+t*4)*2,1+u*4,g.health<2?'#2a2228':'#5a5058');}});
   if(g.state==='caught'){this.spin(Art.heli[1],px-g.caughtTime*12,py+g.caughtTime*g.caughtTime*30,g.caughtTime*5);return;}
@@ -221,12 +269,21 @@ class PixelRenderer {
    if(((wx*13)%17+17)%17===0){c.fillStyle='#5e463a';c.fillRect(x,top+6+((wx*7)%9+9)%9,2,1);}
   }
   if(riverX!==null&&riverX<W+10){const lvl=Math.round(gy(riverX))+4;this.rect(riverX,lvl,W-riverX+10,200-lvl,'#2a6f8a');this.rect(riverX,lvl,W-riverX+10,2,'#9fd8d2');for(let k=0;k<6;k++)for(let xx=riverX+((t*20+k*9)%18);xx<W;xx+=18)this.rect(xx,lvl+6+k*6,6,1,'#5aa3b2');this.foot(Art.rock,riverX-4,lvl+1);}
-  for(let i=0;i<16;i++){const x=((i*47-t*10-scroll*.6)%W+W)%W,y=(i*29+t*25)%200;this.rect(x,y,1,1,i%3?'#b8aaa8':'#ff9a4a');}
+  // Ash falling everywhere, a few glowing.
+  for(let i=0;i<44;i++){const x=((i*47-t*14-scroll*.6+Math.sin(t+i)*6)%W+W)%W,y=(i*29+t*(18+i%5*4))%200;this.rect(x,y,i%4?1:2,1,i%5?'#9a8e8c':'#ff9a4a');}
  }
+ // Trees near the lava catch fire.
+ treeFires(scroll,front,t){const slope=this.slope();for(let id=Math.floor((scroll*.8-30)/34);id*34-scroll*.8<front+40;id++){const x=id*34-scroll*.8+(((id*11)%13)+13)%13;if(x>front+36||x<-20)continue;const y=150+(x-100)*slope-7-((id%3)+3)%3*2-36;
+  for(let k=0;k<5;k++){const u=(t*2.2+k*.2+id*.13)%1;this.rect(x-4+k*2+Math.sin(t*9+k)*1.5,y+10-u*14,2,2,u<.35?'#fff0a0':u<.7?'#ffb03a':'#e8582a');}this.glow(x,y+6,16,'#ff8a2a',.4);}}
  // Rider sprites are rotated around the wheels' contact point.
  riderAt(img,x,y,angle){this.spin(img,x+Math.sin(angle)*26,y-Math.cos(angle)*26,angle);}
  lavaFlow(front,scroll,t){
-  const gy=this.groundY(front,scroll);this.wall(front,gy+4,gy-44,'lava',t,this.slope());
+  const gy=this.groundY(front,scroll);
+  // The lava lights up the ground and trees in front of it.
+  this.glow(front+10,gy-10,80,'#ff5a1a',.32+Math.sin(t*5)*.03);this.glow(front+4,gy-2,30,'#ffa040',.3);
+  for(let x=Math.max(0,front);x<front+60&&x<this.W;x++){const top=Math.round(this.groundY(x,scroll));this.alpha(.75*(1-(x-front)/60),()=>this.rect(x,top,1,2,'#ff8a3a'));}
+  this.treeFires(scroll,front,t);
+  this.wall(front,gy+4,gy-44,'lava',t,this.slope());
   for(let i=0;i<10;i++){const u=(t*1.2+i*.1)%1;this.rect(front-10-i*5+Math.sin(i+t*3)*3,gy-36-u*46,1,1,u<.5?'#ffd36a':'#ff6a2a');}
  }
  bikePhase(g){
@@ -612,6 +669,9 @@ class PixelRenderer {
   if(t>2.4&&t<3.3){const a=Math.sin(ease((t-2.4)/.9)*Math.PI),r=Math.round(1+a*5);this.alpha(a,()=>{this.rect(sx-r,sy,r*2+1,1,'#fff6d0');this.rect(sx,sy-r,1,r*2+1,'#fff6d0');this.rect(sx-1,sy-1,3,3,'#ffffff');});}
   this.img(this.layer('sea-open',W,68,(s,w,h)=>s.vgrad(0,0,w,h,['#2f7f99','#3f97a8','#6cc0bf'])),0,84);
   for(let k=0;k<10;k++){const y=88+k*5;for(let x=((t*6+k*13)%26)-26;x<W;x+=26)this.rect(x+Math.sin(t*2+k)*2,y,6+k%3*2,1,'#a7e0d6');}
+  this.glitter(Math.round(W*.78),86,140,t,'#fff6d8',12);if(t<5)this.gulls(t,4,46,'#3a4a5a');
+  // A sailboat far out at sea, before everything goes wrong.
+  if(t<6.5){const bx=Math.round(W*.42+t*2),by=96;this.rect(bx-6,by,12,2,'#e8e0d0');this.rect(bx-5,by+2,10,1,'#8a6a4a');this.rect(bx,by-10,1,10,'#5a4a3a');this.c.fillStyle='#f4f0e8';this.c.beginPath();this.c.moveTo(bx+1,by-10);this.c.lineTo(bx+7,by-1);this.c.lineTo(bx+1,by-1);this.c.fill();}
   if(fall>0&&t<IMPACT){this.alpha(.3+fall*.4,()=>this.rect(hx-6-fall*10,85,12+fall*20,1,'#ffd38a'));this.group(.4,()=>{this.blob(hx,hy,8+fall*12,'#ff9b4f');this.blob(hx,hy,4+fall*7,'#ffd08a');});this.meteorTrail(hx,hy,ix-sx,iy-sy,30+fall*70,t,1.2);this.rect(hx-3,hy-3,6,6,'#fff6da');this.rect(hx-2,hy-2,4,4,'#ffc069');}
   if(after>0){
    for(let k=0;k<3;k++){const a=after-k*.35;if(a>0&&a<2.6){const r=Math.round(8+a*110);this.alpha((1-a/2.6)*.8,()=>{for(let i=-r;i<=r;i+=2){const yy=Math.round(Math.sqrt(Math.max(0,1-(i/r)**2))*r*.09);this.rect(ix+i,iy+yy,1,1,'#f2fbf0');this.rect(ix+i,iy-yy,1,1,'#f2fbf0');}});}}

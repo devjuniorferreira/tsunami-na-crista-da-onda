@@ -175,6 +175,24 @@ const Art={
    if(f===2){s.poly([[40,15],[52,10],[52,22]],0);s.poly([[42,15],[51,12],[51,20]],'#9c2f3a');for(let k=0;k<4;k++){s.plot(44+k*2,13-Math.round(k*.4),'#ffffff');s.plot(44+k*2,18+Math.round(k*.4),'#ffffff');}}else s.line(44,16,49,15,1,'#3b4a55');
    s.dither(15,9,28,4,'#8ea3b2',.35);
   }));
+  // The shark up close: only the head, mouth open, rows of teeth. o is how wide the jaw is open (0..1); S scales the drawing.
+  const S=1.5,Q=pts=>pts.map(([x,y])=>[x*S,y*S]);
+  A.sharkHead=[.35,.75,1].map(o=>sprite(Math.ceil(100*S),Math.ceil(70*S),s=>{
+   const jaw=o*16,back='#4a5d6e',mid='#6f8596',belly='#dfe7ea',dark='#33424f',P=(x,y)=>[x*S,y*S],L=(a,b,w,c)=>s.line(...P(...a),...P(...b),w,c);
+   s.poly(Q([[0,10],[22,6],[46,10],[66,16],[82,22],[95,30],[98,34],[93,37],[60,38],[0,40]]),back);
+   s.poly(Q([[0,26],[40,24],[62,28],[86,32],[96,34],[93,37],[60,38],[0,40]]),mid);
+   s.poly(Q([[8,10],[22,0],[30,1],[34,10]]),dark);
+   // Lower jaw and belly swing open below the upper jaw.
+   s.poly(Q([[0,42],[58,41],[90,40+jaw],[86,46+jaw],[60,54+jaw*.6],[30,66],[0,70]]),belly);s.poly(Q([[0,42],[58,41],[90,40+jaw],[89,42+jaw],[58,44],[0,45]]),mid);
+   s.poly(Q([[56,38],[93,36],[88,40+jaw],[58,41]]),'#3a0e14');s.poly(Q([[60,39],[90,37],[86,39+jaw*.7],[62,40]]),'#6a1a24');
+   for(let x=62;x<=90;x+=4)s.poly(Q([[x,36],[x+3,36],[x+1.5,39.5+Math.min(3,jaw*.25)]]),'#f4f4f4');
+   for(let x=60;x<=86;x+=4){const y=40+jaw*(x-58)/32;s.poly(Q([[x,y+1],[x+3,y+1],[x+1.5,y-2.5-Math.min(2,jaw*.2)]]),'#f4f4f4');}
+   s.dither(10*S,12*S,70*S,10*S,'#5d7282',.35);s.dither(10*S,30*S,60*S,8*S,'#8ea3b2',.3);
+   // A small, cold eye under a heavy brow.
+   s.rect(70*S,23*S,4*S,3*S,'#0c1014');s.rect(71*S,23*S,2,2,'#ffffff');L([65,19.5],[77,23],3,dark);
+   for(let k=0;k<4;k++)L([30+k*5,24],[28+k*5,36],2,dark);
+   L([48,14],[56,18],1,'#8a9aa8');L([50,17],[54,19],1,'#8a9aa8');
+  }));
   A.pot=sprite(12,15,s=>{s.poly([[2,7],[10,7],[9,14],[3,14]],'#c8643c');s.rect(1,6,10,2,'#e07a4a');s.disc(4,4,2,'#3f8a52');s.disc(8,3,2,'#4fa05e');s.disc(6,2,2,'#3f8a52');});
   A.ac=sprite(18,14,s=>{s.rect(1,1,16,12,'#c9cdd4');s.rect(1,11,16,2,'#8c929c');for(let k=0;k<5;k++)s.rect(2,3+k*2,6,1,'#7d838c');s.disc(12,6,3,'#7d838c');s.disc(12,6,1,'#c9cdd4');});
   A.tv=sprite(16,14,s=>{s.rect(1,1,14,10,'#3a3f4f');s.rect(2,2,10,8,'#5e8fa6');s.rect(3,3,3,2,'#a9d6e8');s.rect(13,3,1,1,'#e05a4a');s.line(5,11,3,13,1,'#3a3f4f');s.line(11,11,13,13,1,'#3a3f4f');});
