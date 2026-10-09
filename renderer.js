@@ -42,7 +42,8 @@ class PixelRenderer {
    c.fillStyle=k[6];c.fillRect(x,top,1,u<face?1:2);
    if(kind==='lava'&&u>8&&(x*13+Math.floor(t*6))%17===0){c.fillStyle=k[0];c.fillRect(x,top+2,1,2);}
   }
-  for(let i=-5;i<lip;i++){const x=front+i,v=(i+5)/(lip+5),top=Math.round(crestY-2+v*v*12),bottom=Math.round(crestY+4+v*(kind==='wave'?10:3));c.fillStyle=i>lip-4?k[6]:k[1];c.fillRect(x,top,1,Math.max(1,bottom-top));}
+  // The lip grows out of the crest (where the face reaches full height) and curls forward, so it stays attached to the wave.
+  for(let i=-face;i<lip;i++){const x=front+i,v=(i+face)/(lip+face),top=Math.round(crestY-2+v*v*(kind==='wave'?16:6)-Math.max(0,-i)*tilt),th=Math.round((kind==='wave'?7:4)*(1-v*.6)+1);c.fillStyle=i>lip-4?k[6]:k[1];c.fillRect(x,top,1,th);c.fillStyle=k[6];c.fillRect(x,top,1,1);}
   c.fillStyle=k[6];
   for(let i=0;i<14;i++){const x=front-((i*7+t*30)%42),y=crestY-2-((i*13+t*40)%10);c.fillRect(Math.round(x),Math.round(y),1,1);}
   for(let i=0;i<10;i++){const x=front+(i*5+t*50)%14-2,y=groundY-((i*7+t*55)%16);c.fillRect(Math.round(x),Math.round(y),i%3?1:2,1);}
@@ -178,9 +179,13 @@ class PixelRenderer {
   for(let i=0;i<8;i++){const u=(t*.9+i*.125)%1;this.rect(px+8+Math.sin(i*3+t*3)*2,py-14-u*40,1+(i%2),1+(i%2),'#cdf6f4');}
   if(g.jumpTime>0)for(let i=0;i<10;i++)this.rect(px-18-i*3,py-10+Math.sin(i+t*20)*2,2,1,'#e8fffb');
   this.sharkY+=(py-12-this.sharkY)*.06;
-  const sx=g.state==='caught'?Math.min(px-28,X(g.waveFront)-30+g.caughtTime*40):X(g.waveFront)-30;
-  if(g.state==='caught'){this.spin(Art.hero.diveTumble,px,py-10,Math.sin(g.caughtTime*12)*.4);this.center(Art.shark[2],sx,this.sharkY);this.fill('#a81e2a',Math.min(.35,g.caughtTime*.4));}
-  else{if(!this.blink(g))this.hero('dive',Math.floor(g.runCycle*(g.jumpTime>0?8:4)),px,py);this.center(Art.shark[Math.floor(t*5)%2],sx,this.sharkY+Math.sin(t*3)*2);}
+  // Only the shark's huge head shows, coming out of the dark at the left edge; its snout is where the chase front is.
+  const snout=g.state==='caught'?Math.min(px+8,X(g.waveFront)+g.caughtTime*40):X(g.waveFront),bite=g.state==='caught'?2:Math.floor(t*(g.trips>=2?4:2.5))%2,c=this.c;
+  const dark=c.createLinearGradient(0,0,Math.max(1,snout),0);dark.addColorStop(0,'rgba(4,10,20,.7)');dark.addColorStop(1,'rgba(4,10,20,0)');c.fillStyle=dark;c.fillRect(0,0,Math.max(1,snout),200);
+  // The body goes on past the left edge: the sprite's first column is stretched out to the screen border.
+  const drawShark=()=>{const img=(Art.sharkHead||Art.shark)[bite],y=Math.round(this.sharkY+Math.sin(t*3)*2-40*1.5),left=Math.round(snout-96*1.5);if(left>0)c.drawImage(img,1,0,1,img.height,0,y,left,img.height);this.img(img,left,y);for(let i=0;i<4;i++){const u=(t*1.5+i*.25)%1;this.rect(snout-30+Math.sin(i*3)*6,y+10-u*20,2,2,'#cdf6f4');}};
+  if(g.state==='caught'){this.spin(Art.hero.diveTumble,px,py-10,Math.sin(g.caughtTime*12)*.4);drawShark();this.fill('#a81e2a',Math.min(.35,g.caughtTime*.4));}
+  else{if(!this.blink(g))this.hero('dive',Math.floor(g.runCycle*(g.jumpTime>0?8:4)),px,py);drawShark();}
   this.shade(g);
  }
 
