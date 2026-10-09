@@ -43,7 +43,7 @@ class GameAudio {
   this.master.gain.setTargetAtTime(this.enabled&&active?.6:0,t,.06);
   // Background noise: sea, deep water, wind or rumbling lava depending on the phase.
   const proximity=g.state==='opening'?Math.max(0,(g.openingTime-5)/4):g.config.chase?Math.min(1,(g.waveFront-100)/210):.6;
-  const color={run:380,surf:420,swim:260,climb:520,heli:900,bike:220}[kind];
+  const color={run:380,surf:420,swim:260,climb:520,heli:900,bike:220,dune:620,vine:420,skate:760,space:140}[kind];
   this.ambient.gain.setTargetAtTime(.08+proximity*.25+Math.sin(g.time*1.3)*.012,t,.3);this.filter.frequency.setTargetAtTime(color+proximity*800,t,.3);
   if(this.enabled&&active){
    if(step!==this.step&&kind==='run'&&g.state==='playing'&&g.intro===0&&g.y===0&&g.stumble===0){this.burst(.055,.13,950);this.tone(95,55,.065,.09);}

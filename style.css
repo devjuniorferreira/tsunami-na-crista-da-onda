@@ -21,3 +21,4 @@ footer a{color:#ffb86a}#threatFill{background:#ff8a5a}.progress i{background:#ff
 html,body{overflow-x:hidden}#stage{max-height:min(780px,calc(100dvh - 140px))}
 @media(max-height:500px) and (orientation:landscape){#stage{max-height:none}}
 #bikeControls{display:flex}#controls #duck{width:125px;font-size:12px;font-weight:bold}
+#holdControls{display:flex;margin-left:auto}#controls #hold{width:150px;height:60px;font-size:12px;font-weight:bold;background:#ffb86a;color:#2a1620;border:0}#chapters{flex-wrap:wrap;row-gap:8px;max-width:520px}
