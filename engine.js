@@ -21,7 +21,7 @@ const duneSlope=x=>85/200*Math.cos(x/200)+20/77*Math.cos(x/77);
 const BEACON_REACH=62,VINE_HANDS=126,VINE_SPACING=360,VINE_REACH=310,SPACE_BOSS_R=230,STORM_START=520;
 const DUCK_TIME=1;
 const LOW_OBSTACLES=new Set(['log','trunk','crack']);
-const START_EVENTS=['A onda invadiu a avenida! Corra até a prancha.','PEGOU A PRANCHA! Arraste na água ou use as setas.','DEBAIXO D’ÁGUA! Fuja do tubarão — IMPULSO acelera.','SUBA O PRÉDIO! Troque de coluna para desviar.','DECOLAMOS! Desvie dos meteoros.','DESÇA DE BICICLETA! Pule pedras e fendas, abaixe nos galhos.','SEGURE nas descidas, SOLTE nos topos para voar!','SEGURE para agarrar o cipó, SOLTE para se lançar!','O LAGO CONGELOU! Deslize… e cuidado, não dá para frear.','GRAVIDADE ZERO! Atravesse os asteroides.'];
+const START_EVENTS=['A onda invadiu a avenida! Corra até a prancha.','PEGOU A PRANCHA! Use o analógico ou as setas.','DEBAIXO D’ÁGUA! Fuja do tubarão — IMPULSO acelera.','SUBA O PRÉDIO! Troque de coluna para desviar.','DECOLAMOS! Desvie dos meteoros.','DESÇA DE BICICLETA! Pule pedras e fendas, abaixe nos galhos.','SEGURE nas descidas, SOLTE nos topos para voar!','SEGURE para agarrar o cipó, SOLTE para se lançar!','O LAGO CONGELOU! Deslize… e cuidado, não dá para frear.','GRAVIDADE ZERO! Atravesse os asteroides.'];
 const CHASE_EVENTS={
  wave:['TROPEÇOU! A onda ficou mais perto.','SEGUNDO TROPEÇO! Mais um e a onda pega você.','A ONDA ALCANÇOU VOCÊ!'],
  shark:['BATEU! O tubarão está chegando…','O TUBARÃO ESTÁ COLADO! Cuidado!','O TUBARÃO TE PEGOU!'],
@@ -120,8 +120,9 @@ class ApocalipseGame {
   const travel=this.speed*dt;this.scroll+=travel;this.distance+=travel*cfg.mpu;this.runCycle+=dt*(kind==='swim'?1.6:1);
   const minX=kind==='heli'?160:220,maxX=kind==='heli'?Math.min(560,this.viewWidth-200):Math.min(480,this.viewWidth-140);
   const direction=(input.down?1:0)-(input.up?1:0),side=(input.right?1:0)-(input.left?1:0);
-  const vertical=direction||(input.target?clamp((input.target.y-this.surfY)*7,-1,1):0);
-  const horizontal=side||(input.target?clamp((input.target.x-this.playerX)/45,-1,1):0);
+  const st=input.stick||{x:0,y:0};
+  const vertical=direction||st.y||(input.target?clamp((input.target.y-this.surfY)*7,-1,1):0);
+  const horizontal=side||st.x||(input.target?clamp((input.target.x-this.playerX)/45,-1,1):0);
   // On ice the skater keeps gliding: slow to turn, slower to stop.
   const grip=kind==='skate'?[2.4,.55]:[13,18],gripX=kind==='skate'?[2.4,.55]:[12,18];
   this.surfVelocity+=(vertical*(kind==='skate'?.8:.96)-this.surfVelocity)*(1-Math.exp(-dt*(vertical?grip[0]:grip[1])));
@@ -207,7 +208,7 @@ class ApocalipseGame {
   const side=(input.right?1:0)-(input.left?1:0),vert=(input.down?1:0)-(input.up?1:0);
   const py=90+this.surfY*420,tx=input.target?clamp((input.target.x-this.playerX)/60,-1,1):0,ty=input.target?clamp((90+input.target.y*420-py)/60,-1,1):0;
   // Thrusters push; a light drag keeps the drift controllable.
-  this.playerVX+=(side||tx)*520*dt;this.surfVelocity+=(vert||ty)*1.25*dt;const drag=Math.exp(-dt*1.4);this.playerVX*=drag;this.surfVelocity*=drag;
+  const st=input.stick||{x:0,y:0};this.playerVX+=(side||st.x||tx)*520*dt;this.surfVelocity+=(vert||st.y||ty)*1.25*dt;const drag=Math.exp(-dt*1.4);this.playerVX*=drag;this.surfVelocity*=drag;
   this.playerX=clamp(this.playerX+this.playerVX*dt,110,W-90);this.surfY=clamp(this.surfY+this.surfVelocity*dt,.06,.94);
   if(this.playerX===110||this.playerX===W-90)this.playerVX*=-.3;if(this.surfY===.06||this.surfY===.94)this.surfVelocity*=-.3;
   this.speed=cfg.speed;this.scroll+=cfg.speed*dt;this.spawn-=dt;
