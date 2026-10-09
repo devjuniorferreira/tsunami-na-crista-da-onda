@@ -43,3 +43,16 @@ test('in space the stick reaches the thrusters on the right side of a wide scree
  for(let i=0;i<60*8&&game.distance===0;i++){const py=90+game.surfY*420,dx=goal-game.playerX,dy=c.y-py,d=Math.hypot(dx,dy)||1;canvas.pointermove(ev(1,200+dx/d*50,300+dy/d*50));game.spawn=999;game.objects=[];step();}
  assert(game.distance>=1,'a thruster was installed with the stick');
 });
+
+test('the menu offers to continue from the last phase reached, and the story keeps going from there',async()=>{
+ const store={};const localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=String(v);},removeItem:k=>{delete store[k];}};
+ const frames=[];const loaded=load({requestAnimationFrame:cb=>frames.push(cb),localStorage});let now=0;const step=()=>{for(const cb of frames.splice(0))cb(now+=16);};
+ for(let i=0;i<5;i++){step();await new Promise(r=>setImmediate(r));}
+ const {game,elements}=loaded;assert.equal(elements.continue.hidden,true,'nothing saved yet');
+ game.start(5);for(let i=0;i<10;i++)step();assert.equal(store['apocalipse-fase'],'5','reaching phase 6 is saved');
+ // A new visit with that save shows CONTINUAR and starts at phase 6.
+ const again=load({requestAnimationFrame:cb=>frames.push(cb),localStorage});for(let i=0;i<5;i++){step();await new Promise(r=>setImmediate(r));}
+ assert.equal(again.elements.continue.hidden,false);assert.match(again.elements.continue.innerHTML,/FASE 06 O VULCÃO/);
+ again.elements.continue.onclick();assert.equal(again.game.phase,5);assert.equal(again.game.state,'playing');
+ again.game.state='won';for(let i=0;i<10;i++)step();assert.equal(store['apocalipse-fase'],undefined,'finishing the story clears it');
+});

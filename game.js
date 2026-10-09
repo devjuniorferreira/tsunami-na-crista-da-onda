@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id),canvas=$('scene'),game=new ApocalipseGame(),renderer=new PixelRenderer(canvas),input={up:false,down:false,left:false,right:false,target:null},audio=new GameAudio();
-let last=0,accumulator=0,messageTime=0,shownState='menu',lastTrip=-1,ready=false,uiElapsed=0;
+let lastSaved=-1,last=0,accumulator=0,messageTime=0,shownState='menu',lastTrip=-1,ready=false,uiElapsed=0;
 const fixedStep=1/120;
 const INFO=[
  {chapter:'01 / A PRAIA',objective:'ALCANCE A PRANCHA',unit:'m',jump:'PULAR ↗',tip:'↑ / ESPAÇO / TOQUE: PULAR · 3 TROPEÇOS = FIM',threat:['A ONDA ESTÁ NA RUA','A ONDA ESTÁ MAIS PERTO','PERIGO · ÚLTIMA CHANCE','A ONDA ALCANÇOU VOCÊ'],
@@ -40,7 +40,7 @@ function resize(){renderer.resize();game.viewWidth=renderer.width;renderer.menuD
 window.addEventListener('resize',resize);resize();
 for(const event of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(event,()=>{fullscreenButton();resize();});
 function clearInput(){input.up=input.down=input.left=input.right=input.hold=input.duck=false;input.target=null;if(stick)releaseStick();}
-function showOverlay(kicker,title,story,label,instructions){$('overlay').hidden=false;text('kicker',kicker);$('overlay').querySelector('h1').innerHTML=title;text('story',story);$('start').innerHTML=label+' <span>↗</span>';$('chapters').hidden=true;$('phaseList').hidden=true;$('story').hidden=false;$('choose').setAttribute('aria-expanded','false');$('controls').hidden=true;$('caption').textContent='';text('instructions',instructions);}
+function showOverlay(kicker,title,story,label,instructions){$('overlay').hidden=false;text('kicker',kicker);$('overlay').querySelector('h1').innerHTML=title;text('story',story);$('start').innerHTML=label+' <span>↗</span>';$('chapters').hidden=true;$('phaseList').hidden=true;$('continue').hidden=true;$('story').hidden=false;$('choose').setAttribute('aria-expanded','false');$('controls').hidden=true;$('caption').textContent='';text('instructions',instructions);}
 function ui(){
  const state=game.state,info=INFO[game.phase],cfg=game.config,active=state==='playing',cinematic=state==='opening'||state==='transition'||(state==='paused'&&(game.resumeState==='opening'||game.resumeState==='transition'));
  show('skip',state==='opening');show('pause',state!=='menu'&&state!=='lost'&&state!=='won');text('pause',state==='paused'?'▶':'Ⅱ');$('pause').setAttribute('aria-label',state==='paused'?'Continuar jogo':'Pausar jogo');
@@ -53,6 +53,8 @@ function ui(){
  if(state!=='menu')text('tip',info.tip);
  if(game.event){$('caption').textContent=game.event;messageTime=3.4;game.event='';}
  if(lastTrip!==game.trips){lastTrip=game.trips;$('stage').classList.toggle('danger',game.trips>=2&&!!cfg.chase);}
+ if(state==='playing'&&game.phase!==lastSaved){lastSaved=game.phase;savePhase(game.phase);}
+ if(state==='won'&&lastSaved!==-2){lastSaved=-2;savePhase(0);}
  if(shownState!==state){shownState=state;
   if(active||state==='caught'||cinematic){$('overlay').hidden=true;$('controls').hidden=!active;}
   else if(state==='paused')showOverlay('PAUSADO','RECUPERE<br><em>O FÔLEGO.</em>','O fim do mundo espera você. Continue quando estiver pronto.','CONTINUAR','');
@@ -60,10 +62,16 @@ function ui(){
   else if(state==='won'){showOverlay('DEZ FASES CONCLUÍDAS','VOCÊ SALVOU<br><em>O MUNDO.</em>','Da praia ao espaço: onda, tubarão, lava, tempestade, manada, gelo e o meteoro gigante. O fim do mundo foi cancelado.','JOGAR DE NOVO','Escolha uma fase para jogar de novo.');$('chapters').hidden=false;}
  }
 }
+// The last phase reached is remembered in this browser, so the menu can offer to continue from it.
+const SAVE_KEY='apocalipse-fase';
+const savedPhase=()=>{try{const n=parseInt(localStorage.getItem(SAVE_KEY),10);return n>0&&n<NAMES.length?n:0;}catch{return 0;}};
+function savePhase(n){try{if(n>0)localStorage.setItem(SAVE_KEY,String(n));else localStorage.removeItem(SAVE_KEY);}catch{}}
+function continueButton(){const n=savedPhase();$('continue').hidden=!n||game.state!=='menu';if(n&&game.state==='menu')$('chapters').hidden=true;if(n)$('continue').innerHTML=`CONTINUAR · FASE ${String(n+1).padStart(2,'0')} ${NAMES[n]} <span>↗</span>`;}
+$('continue').onclick=()=>begin(savedPhase());
 function begin(phase){if(!ready)return;audio.unlock();clearInput();accumulator=0;if(phase===0)game.beginOpening();else game.start(phase);ui();}
 $('start').onclick=()=>{if(!ready)return;audio.unlock();if(game.state==='paused')game.pause();else if(game.state==='lost'){clearInput();accumulator=0;game.start(game.phase);}else begin(0);ui();};
 // The phase list replaces the story and chapter list, so everything fits on short screens.
-$('choose').onclick=()=>{const open=$('phaseList').hidden;$('phaseList').hidden=!open;$('story').hidden=open;$('chapters').hidden=open||game.state!=='menu'&&game.state!=='won';$('choose').setAttribute('aria-expanded',String(open));if(open&&$('phaseList').scrollIntoView)$('phaseList').scrollIntoView({block:'nearest'});};
+$('choose').onclick=()=>{const open=$('phaseList').hidden;text('instructions',open?'A história continua da fase escolhida até o final.':'Use o teclado, toque na tela ou os botões. Cada fase explica o controle ao começar.');$('phaseList').hidden=!open;$('story').hidden=open;$('chapters').hidden=open||game.state!=='menu'&&game.state!=='won';$('choose').setAttribute('aria-expanded',String(open));if(open&&$('phaseList').scrollIntoView)$('phaseList').scrollIntoView({block:'nearest'});};
 NAMES.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.innerHTML=`<b>${String(i+1).padStart(2,'0')}</b> ${name}`;b.onclick=()=>begin(i);$('phaseList').append(b);});
 $('skip').onclick=()=>{game.finishOpening();ui();};
 $('pause').onclick=()=>{game.pause();clearInput();ui();};
@@ -121,7 +129,7 @@ async function prepare(){
   renderer.prepare(ApocalipseGame);$('loadProgress').value=90;await new Promise(requestAnimationFrame);
   // The menu shows the avenue behind the title.
   game.start(0);game.state='menu';game.event='';game.scroll=900;game.time=1;game.waveFront=-200;game.speed=0;renderer.draw(game);
-  $('loadProgress').value=100;ready=true;$('start').disabled=false;$('choose').disabled=false;$('loading').hidden=true;last=0;ui();requestAnimationFrame(frame);
+  $('loadProgress').value=100;ready=true;$('start').disabled=false;$('choose').disabled=false;continueButton();$('loading').hidden=true;last=0;ui();requestAnimationFrame(frame);
  }catch(error){$('loadingText').textContent='Não foi possível preparar o jogo. Recarregue a página para tentar novamente.';console.error(error);}
 }
 prepare();
