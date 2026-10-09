@@ -18,7 +18,7 @@ const PHASES=[
 // Dune profile in world units (y up) and its slope.
 const duneHeight=x=>85*Math.sin(x/200)+20*Math.sin(x/77);
 const duneSlope=x=>85/200*Math.cos(x/200)+20/77*Math.cos(x/77);
-const VINE_HANDS=126,VINE_SPACING=360,VINE_REACH=310,SPACE_BOSS_R=230,STORM_START=520;
+const BEACON_REACH=62,VINE_HANDS=126,VINE_SPACING=360,VINE_REACH=310,SPACE_BOSS_R=230,STORM_START=520;
 const DUCK_TIME=1;
 const LOW_OBSTACLES=new Set(['log','trunk','crack']);
 const START_EVENTS=['A onda invadiu a avenida! Corra até a prancha.','PEGOU A PRANCHA! Arraste na água ou use as setas.','DEBAIXO D’ÁGUA! Fuja do tubarão — IMPULSO acelera.','SUBA O PRÉDIO! Troque de coluna para desviar.','DECOLAMOS! Desvie dos meteoros.','DESÇA DE BICICLETA! Pule pedras e fendas, abaixe nos galhos.','SEGURE nas descidas, SOLTE nos topos para voar!','SEGURE para agarrar o cipó, SOLTE para se lançar!','O LAGO CONGELOU! Deslize… e cuidado, não dá para frear.','GRAVIDADE ZERO! Atravesse os asteroides.'];
@@ -213,11 +213,11 @@ class ApocalipseGame {
   this.speed=cfg.speed;this.scroll+=cfg.speed*dt;this.spawn-=dt;
   if(this.field<cfg.field){if(this.spawn<=0&&this.field<cfg.field-2){const size=.7+r()*.6;this.objects.push({x:W+60,y:.05+r()*.9,vx:40+r()*120,vy:(r()-.5)*.06,type:'asteroid',size,hit:false,seed:this.time});this.spawn=.65+r()*.4;}}
   else{
-   if(!this.boss){this.boss={x:W+SPACE_BOSS_R+80};this.event='O METEORO GIGANTE! Instale os 3 propulsores.';this.sounds.push('warning');
+   if(!this.boss){this.boss={x:W+SPACE_BOSS_R+80};this.event='O METEORO GIGANTE! Encoste nos 3 pontos vermelhos dele.';this.sounds.push('warning');
     this.beacons=[2.55,Math.PI,3.73].map(a=>({a,done:false}));}
    this.boss.x+=((W-130)-this.boss.x)*(1-Math.exp(-dt*1.2));
    const c=this.bossCenter(),pyNow=90+this.surfY*420;
-   for(const b of this.beacons){if(b.done)continue;const bx=c.x+Math.cos(b.a)*(SPACE_BOSS_R+8),by=c.y+Math.sin(b.a)*(SPACE_BOSS_R+8);if(Math.hypot(bx-this.playerX,by-pyNow)<48){b.done=true;this.distance++;this.sounds.push('pickup');this.event=`PROPULSOR ${this.distance}/3 INSTALADO!`;}}
+   for(const b of this.beacons){if(b.done)continue;const bx=c.x+Math.cos(b.a)*(SPACE_BOSS_R+8),by=c.y+Math.sin(b.a)*(SPACE_BOSS_R+8);if(Math.hypot(bx-this.playerX,by-pyNow)<BEACON_REACH){b.done=true;this.distance++;this.sounds.push('pickup');this.event=this.distance<3?`PROPULSOR ${this.distance}/3 INSTALADO! Siga a seta para o próximo.`:'PROPULSOR 3/3 INSTALADO!';}}
    // The meteor sheds chunks toward the hero.
    if(this.spawn<=0&&this.boss.x<W){const a=Math.PI*(.65+r()*.7),sx=c.x+Math.cos(a)*SPACE_BOSS_R,sy=c.y+Math.sin(a)*SPACE_BOSS_R;this.objects.push({x:sx,y:(sy-90)/420,vx:-cfg.speed+60+r()*60,vy:(r()-.5)*.12,type:'chunk',size:.55+r()*.3,hit:false,seed:this.time});this.spawn=1.2+r()*.5;}
    const dx=this.playerX-c.x,dy=pyNow-c.y,d=Math.hypot(dx,dy),min=SPACE_BOSS_R+20;

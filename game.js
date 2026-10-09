@@ -22,7 +22,7 @@ const INFO=[
   lost:['A MANADA<br><em>TE ALCANÇOU.</em>','Solte o cipó quando ele estiver subindo para a frente e segure de novo perto do próximo. Ficar parado deixa a manada chegar.','Espaço, toque na tela ou SEGURAR.']},
  {chapter:'09 / O GELO',objective:'ATRAVESSE O LAGO',unit:'m',jump:'',tip:'ARRASTE OU USE AS SETAS: PATINAR · NO GELO NÃO DÁ PARA FREAR',threat:['O GELO ESTÁ RACHANDO','A RACHADURA ESTÁ PERTO','PERIGO · ÚLTIMA CHANCE','O GELO QUEBROU'],
   lost:['O GELO<br><em>QUEBROU.</em>','No gelo você desliza: comece a virar antes. Desvie dos buracos, dos pinguins e do urso-polar.','Arraste ou use as setas para patinar.']},
- {chapter:'10 / O ESPAÇO',objective:'DESVIE O METEORO',unit:'propulsores',jump:'',tip:'ARRASTE OU USE AS SETAS: JATOS · ENCOSTE NOS PONTOS VERMELHOS',
+ {chapter:'10 / O ESPAÇO',objective:'DESVIE O METEORO',unit:'propulsores',jump:'',tip:'ARRASTE OU USE AS SETAS · SIGA A SETA AMARELA ATÉ OS PONTOS VERMELHOS',
   lost:['O TRAJE<br><em>FALHOU.</em>','Sem gravidade você continua flutuando: use jatos curtos. Encoste nos três pontos vermelhos do meteoro gigante.','Arraste ou use as setas para os jatos.']}
 ];
 const NAMES=['A PRAIA','O SURFE','O FUNDO DO MAR','O PRÉDIO','O CÉU','O VULCÃO','O DESERTO','A FLORESTA','O GELO','O ESPAÇO'];
@@ -44,9 +44,9 @@ function ui(){
  const state=game.state,info=INFO[game.phase],cfg=game.config,active=state==='playing',cinematic=state==='opening'||state==='transition'||(state==='paused'&&(game.resumeState==='opening'||game.resumeState==='transition'));
  show('skip',state==='opening');show('pause',state!=='menu'&&state!=='lost'&&state!=='won');text('pause',state==='paused'?'▶':'Ⅱ');$('pause').setAttribute('aria-label',state==='paused'?'Continuar jogo':'Pausar jogo');
  show('hud',!(state==='menu'||state==='won'||cinematic));
- text('chapter',info.chapter);text('objective',info.objective);
+ text('chapter',info.chapter);text('objective',cfg.kind==='space'?(game.boss?'ENCOSTE NOS PONTOS VERMELHOS':'DESVIE DOS ASTEROIDES'):info.objective);
  text('life',cfg.kind==='dune'?`${Math.round(Math.max(0,game.speed)*.12)} KM/H`:cfg.chase?`${game.trips} / 3 ${cfg.kind==='run'?'TROPEÇOS':cfg.kind==='vine'?'QUEDAS':'BATIDAS'}`:'♥ '.repeat(Math.max(0,game.health))+'♡ '.repeat(3-Math.max(0,game.health)));$('life').classList.toggle('critical',!!cfg.chase&&game.trips===2&&cfg.kind!=='dune');
- const goal=cfg.goal,done=Math.min(goal,Math.floor(game.distance));text('meter',`${done} / ${goal} ${info.unit}`);$('bar').style.width=Math.min(100,game.distance/goal*100)+'%';
+ const goal=cfg.goal,done=Math.min(goal,Math.floor(game.distance));text('meter',cfg.kind==='space'&&!game.boss?`METEORO EM ${Math.max(0,Math.ceil(cfg.field-game.field))} s`:`${done} / ${goal} ${info.unit}`);$('bar').style.width=Math.min(100,game.distance/goal*100)+'%';
  const kind=cfg.kind;show('surfControls',kind==='surf'||kind==='swim'||kind==='heli'||kind==='skate'||kind==='space');show('holdControls',!!info.hold);show('laneControls',kind==='climb');show('bikeControls',kind==='bike');show('jump',!!info.jump);text('jump',info.jump);$('jump').classList.toggle('cooling',(kind==='surf'||kind==='swim')&&game.jumpCooldown>0);
  show('threat',!!cfg.chase&&state!=='menu'&&state!=='won'&&!cinematic);$('threatFill').style.width=Math.min(100,(game.waveFront-80)/2.3)+'%';if(info.threat)text('threatLabel',info.threat[Math.min(3,game.trips)]);
  if(state!=='menu')text('tip',info.tip);
@@ -95,7 +95,8 @@ canvas.addEventListener('pointerdown',e=>{
  if(kind==='climb'){const box=canvas.getBoundingClientRect(),x=(e.clientX-box.left)/renderer.scale,player=(renderer.W/2+(game.laneX-1)*37)*3;game.move(x<player?-1:1);return;}
  canvas.setPointerCapture(e.pointerId);drag={id:e.pointerId,x:e.clientX,y:e.clientY,px:game.playerX,py:game.surfY,moved:false};
 });
-canvas.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||game.state!=='playing')return;const dx=(e.clientX-drag.x)/renderer.scale,dy=(e.clientY-drag.y)/renderer.scale,range=game.config.kind==='surf'||game.config.kind==='skate'?155:420;drag.moved=drag.moved||Math.abs(dx)+Math.abs(dy)>8;input.target={x:Math.max(160,Math.min(560,drag.px+dx)),y:Math.max(.1,Math.min(.9,drag.py+dy/range))};});
+canvas.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||game.state!=='playing')return;const dx=(e.clientX-drag.x)/renderer.scale,dy=(e.clientY-drag.y)/renderer.scale,range=game.config.kind==='surf'||game.config.kind==='skate'?155:420;drag.moved=drag.moved||Math.abs(dx)+Math.abs(dy)>8;// The helicopter keeps to the left; in space the whole width is reachable, the meteor's thrusters included.
+ const kind=game.config.kind,[minX,maxX]=kind==='space'?[0,game.viewWidth]:[160,560];input.target={x:Math.max(minX,Math.min(maxX,drag.px+dx)),y:Math.max(.1,Math.min(.9,drag.py+dy/range))};});
 canvas.addEventListener('pointerup',e=>{if(e.pointerId===holdPointer){input.hold=input.duck=false;holdPointer=null;}if(!drag||drag.id!==e.pointerId)return;if(!drag.moved)game.jump();drag=null;input.target=null;});
 for(const event of ['pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>{drag=null;input.target=null;if(holdPointer!==null){input.hold=input.duck=false;holdPointer=null;}});
 function frame(now){

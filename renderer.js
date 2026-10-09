@@ -389,6 +389,14 @@ class PixelRenderer {
   if(g.boss)this.bossWithBeacons(X(g.boss.x),X(300),g.beacons,t);
   for(const o of g.objects){const x=X(o.x),y=X(90+o.y*420);if(o.type==='chunk'){this.meteorTrail(x,y,-(g.speed-o.vx),o.vy*420,8,t,o.size);this.spin(Art.meteor[0],x,y,t*3+o.seed);}else this.spin(Art.asteroid[o.size<.9?0:o.size<1.1?1:2],x,y,t*(o.seed%2?1:-1)+o.seed);}
   const px=X(g.playerX),py=X(90+g.surfY*420);
+  // Guidance: a ring on the next thruster point and a yellow arrow pointing to it.
+  const next=g.boss&&g.state==='playing'&&g.beacons.find(b=>!b.done);
+  if(next){const r=X(SPACE_BOSS_R+8),bx=X(g.boss.x)+Math.cos(next.a)*r,by=X(300)+Math.sin(next.a)*r;
+   for(const p of [(t*1.2)%1,(t*1.2+.5)%1]){const rr=8+p*16;this.alpha((1-p)*.9,()=>{for(let k=0;k<40;k++){const a=k/40*Math.PI*2;this.rect(bx+Math.cos(a)*rr-1,by+Math.sin(a)*rr-1,2,2,'#ffd23a');}});}
+   const cx=px,cy=py-20,dx=bx-cx,dy=by-cy,d=Math.hypot(dx,dy);
+   if(d>60){const ux=dx/d,uy=dy/d,tip=34+Math.sin(t*7)*3,ax=cx+ux*tip,ay=cy+uy*tip;
+    for(let k=0;k<14;k++)this.rect(ax-ux*k-1,ay-uy*k-1,3,3,'#ffd23a');
+    for(let k=0;k<7;k++)for(let j=-k;j<=k;j++)this.rect(ax-ux*k-uy*j*.9-1,ay-uy*k+ux*j*.9-1,2,2,k===0?'#fff3b0':'#ffd23a');}}
   if(g.state==='caught'){this.spin(Art.hero.astroSpin,px-g.caughtTime*10,py,g.caughtTime*4);return;}
   for(let i=0;i<6;i++){const u=(t*4+i*.17)%1;this.rect(px-9-u*10-g.playerVX*.02*u,py-2+Math.sin(i*2)*2,2,2,u<.4?'#fff3b0':'#ff9a3c');}
   if(!this.blink(g))this.spin(Art.hero.astro,px,py-20,Math.max(-.3,Math.min(.3,g.playerVX/700))+Math.sin(t*1.5)*.06);
