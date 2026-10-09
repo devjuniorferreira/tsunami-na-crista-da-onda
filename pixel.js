@@ -222,7 +222,11 @@ const Art={
   A.rocket=sprite(30,84,s=>{s.poly([[15,0],[23,14],[23,64],[7,64],[7,14]],'#e8ecf0');s.poly([[15,0],[23,14],[7,14]],'#d8443a');s.rect(19,14,4,50,'#c4ccd4');s.poly([[7,52],[0,72],[7,66]],'#d8443a');s.poly([[23,52],[30,72],[23,66]],'#d8443a');s.rect(9,64,12,6,'#5d6372');s.disc(15,28,4,'#3f7fd0');s.disc(15,28,2,'#8fd3e8');s.rect(9,42,12,2,'#d8443a');for(let k=0;k<4;k++)s.plot(11+k*2,48,'#3b3d4f');});
   A.gantry=sprite(22,90,s=>{for(let y=0;y<90;y+=10){s.line(2,y,18,y+10,1,'#d8a23a');s.line(18,y,2,y+10,1,'#d8a23a');}s.rect(1,0,2,90,'#b8852e');s.rect(17,0,2,90,'#b8852e');s.rect(17,30,6,3,'#b8852e');},false);
   A.base=sprite(80,44,s=>{s.rect(2,18,60,25,'#d6dde4');s.rect(2,18,60,3,'#a9b2bc');for(let k=0;k<5;k++)s.rect(8+k*11,26,7,6,'#3f7fd0');s.rect(28,34,8,9,'#5d6372');s.rect(64,28,14,15,'#c4ccd4');s.line(70,28,70,8,1,'#5d6372');s.ellipse(70,6,8,3,'#e8ecf0');s.rect(6,4,1,14,'#5d6372');s.rect(7,4,8,5,'#d8443a');s.dither(2,40,76,3,'#ffffff',.6);});
-  A.asteroid=[5,7,9].map(r=>sprite(r*2+4,r*2+4,s=>{const c=r+2,rnd=seededRandom(r*17);s.disc(c,c,r,'#6d6a72');for(let k=0;k<6;k++){const a=rnd()*6.28;s.disc(c+Math.cos(a)*r*.75,c+Math.sin(a)*r*.75,Math.max(1,r*.35),'#6d6a72');}s.disc(c-1,c-1,r*.6,'#8a8790');s.disc(c+r*.3,c+r*.25,Math.max(1,r*.28),'#4f4c55');s.plot(c-r*.4,c-r*.3,'#4f4c55');}));
+  // Asteroids are shaded like small moons, lit from the sun at the top right.
+  A.asteroid=[5,7,9].map(R=>sprite(R*2+4,R*2+4,s=>{const c=R+2,rnd=seededRandom(R*17),pal=['#2e2c34','#4a4752','#6d6a72','#8e8b94','#b4b0ba'],k=[rnd()*6,rnd()*6,rnd()*6];
+   for(let y=0;y<s.h;y++)for(let x=0;x<s.w;x++){const dx=(x-c)/R,dy=(y-c)/R,a=Math.atan2(dy,dx),e=1+Math.sin(a*3+k[0])*.12+Math.sin(a*5+k[1])*.07,d2=(dx*dx+dy*dy)/(e*e);if(d2>1)continue;
+    const l=dx*.55-dy*.6+Math.sqrt(1-d2)*.55+Math.sin(x*1.3+k[2])*Math.sin(y*1.1)*.12,v=(l+.15)*3.4,i=Math.max(0,Math.min(4,Math.floor(v)));s.plot(x,y,pal[Math.min(4,i+((x+y)%2&&v-i>.5?1:0))]);}
+   s.disc(c-R*.2,c+R*.25,Math.max(1,R*.22),'#3a3840');s.plot(c-R*.2+1,c+R*.25-1,'#2a2830');}));
   A.beacon=[0,1].map(on=>sprite(12,12,s=>{s.rect(2,3,8,8,'#9aa3a8');s.rect(3,4,6,6,'#6d747c');s.rect(5,0,2,4,'#c4ccd4');s.disc(6,7,2,on?'#7cf27a':'#ff4a3a');}));
   A.helipad=sprite(60,8,s=>{s.ellipse(30,4,28,3,'#4b5260');s.ellipse(30,4,25,2,'#606878');s.rect(25,3,2,3,'#f2d14a');s.rect(33,3,2,3,'#f2d14a');s.rect(27,4,6,1,'#f2d14a');},false);
  }
