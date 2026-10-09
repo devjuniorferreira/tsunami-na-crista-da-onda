@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {ApocalipseGame: Game, PHASES} = require('./engine.js');
+const {ApocalipseGame: Game, PHASES, TRANSITIONS, duneSlope, duneHeight} = require('./engine.js');
 function tick(g, seconds, input={}){for(let i=0;i<Math.ceil(seconds*120);i++)g.update(1/120,input);}
 function running(){const g=new Game(()=>.5);g.start();g.intro=0;g.spawn=999;g.course=[];tick(g,1);return g;}
 function collide(g){g.objects=[{x:300,y:g.surfY,type:g.phase?'car':'cooler',hit:false}];g.update(1/120);}
@@ -82,24 +82,31 @@ test('helicopter: meteors cost hearts and the phase ends with the giant-meteor c
 
 test('a careful player can go from the beach to the end of the story',()=>{
  const g=new Game(seeded(3));g.start(0);let frames=0;const seen=[];
- while(g.state!=='won'&&frames<120*400){
+ while(g.state!=='won'&&frames<120*700){
   if(g.state==='lost')assert.fail(`lost in phase ${g.phase}`);
   const input={};const kind=g.config.kind;
   if(g.state==='playing'&&!seen.includes(g.phase))seen.push(g.phase);
   if(g.state==='playing'){
    if((kind==='run'||kind==='bike')&&g.y===0&&g.objects.some(o=>!o.hit&&o.type!=='branch'&&o.x>300&&o.x<=410))g.jump();
    if(kind==='bike'&&g.y===0&&g.objects.some(o=>!o.hit&&o.type==='branch'&&o.x>300&&o.x<=380))g.duck();
-   if(kind==='surf'||kind==='swim'||kind==='heli'){
-    const ahead=g.objects.filter(o=>!o.hit&&o.x>g.playerX-70&&o.x<g.playerX+(kind==='heli'?330:260));
-    let best=.5,bestGap=-1;for(let y=.1;y<=.9;y+=.05){const gap=ahead.length?Math.min(...ahead.map(o=>{const t=Math.max(0,(o.x-g.playerX)/(g.speed-(o.vx||0)));return Math.abs((o.type==='jelly'?o.y+Math.sin(g.time*2+o.seed*7)*.06:o.y)+(o.vy||0)*t-y);})):1;if(gap>bestGap+.001){bestGap=gap;best=y;}}
-    input.target={x:kind==='heli'?180:300,y:best};
+   if(kind==='dune')input.hold=g.grounded?duneSlope(g.scroll)<.05:g.vy<0&&g.wy-duneHeight(g.scroll)<30&&duneSlope(g.scroll+g.vx*.1)<0;
+   if(kind==='vine')input.hold=g.mode==='swing'?!(g.theta>.5&&g.omega>0):true;
+   if(kind==='surf'||kind==='swim'||kind==='heli'||kind==='skate'||kind==='space'){
+    const look=kind==='heli'?330:kind==='space'?380:kind==='skate'?420:260;
+    const ahead=g.objects.filter(o=>!o.hit&&o.x>g.playerX-70&&o.x<g.playerX+look);
+    const closing=o=>kind==='space'?g.speed-o.vx:kind==='skate'?g.speed+(o.vx||0):g.speed-(o.vx||0);
+    let best=.5,bestGap=-1;for(let y=.1;y<=.9;y+=.05){const gap=ahead.length?Math.min(...ahead.map(o=>{const t=Math.max(0,(o.x-g.playerX)/Math.max(60,closing(o)));return Math.abs((o.type==='jelly'?o.y+Math.sin(g.time*2+o.seed*7)*.06:o.y)+(o.vy||0)*t-y);})):1;if(gap>bestGap+.001){bestGap=gap;best=y;}}
+    let x=kind==='heli'?180:kind==='space'?200:300;
+    // In space, head for the next thruster point whenever nothing is close.
+    if(kind==='space'&&g.boss){const c=g.bossCenter(),b=g.beacons.find(b=>!b.done),danger=ahead.some(o=>Math.abs(o.x-g.playerX)<120&&Math.abs(o.y-g.surfY)<.12);if(b&&!danger){x=c.x+Math.cos(b.a)*238-20;best=(c.y+Math.sin(b.a)*238-90)/420;}}
+    input.target={x,y:best};
     if(ahead.some(o=>Math.abs(o.x-g.playerX)<90&&Math.abs(o.y-g.surfY)<.17))g.jump();
    }
    if(kind==='climb'){const danger=[0,1,2].map(l=>g.objects.some(o=>o.lane===l&&o.y<430&&o.y>-120));if(danger[g.lane]){const free=[0,1,2].filter(l=>!danger[l]).sort((a,b)=>Math.abs(a-g.lane)-Math.abs(b-g.lane))[0];if(free!==undefined)g.move(Math.sign(free-g.lane));}}
   }
   g.update(1/120,input);frames++;
  }
- assert.equal(g.state,'won');assert.deepEqual(seen,[0,1,2,3,4,5]);
+ assert.equal(g.state,'won');assert.deepEqual(seen,[0,1,2,3,4,5,6,7,8,9]);
 });
 
 test('bike: ducking passes under branches, jumping into one hits, and a duck pressed in the air waits for landing',()=>{
@@ -116,4 +123,43 @@ test('bike: ducking passes under branches, jumping into one hits, and a duck pre
 test('the surf cutscene hands over the dive kit before the wave breaks',()=>{
  const g=new Game(()=>.5);g.start(1);g.intro=0;g.speed=350;g.distance=719.99;g.update(1/120);g.sounds=[];
  tick(g,1);assert.deepEqual(g.sounds,['pickup']);tick(g,1.5);assert(g.sounds.includes('crash'));tick(g,2.2);assert.equal(g.phase,2);assert.equal(g.state,'playing');
+});
+
+test('dunes: pressing downhill and letting go at the crests outruns the storm; doing nothing or always pressing does not',()=>{
+ const play=policy=>{const g=new Game(()=>.5);g.start(6);g.intro=0;let flights=0;for(let i=0;i<120*60&&g.state==='playing';i++){const was=g.grounded;g.update(1/120,{hold:policy(g)});if(was&&!g.grounded)flights++;}return {g,flights};};
+ assert.equal(play(()=>false).g.state,'caught');assert.equal(play(()=>true).g.state,'caught');
+ const {g,flights}=play(g=>g.grounded?duneSlope(g.scroll)<.05:g.vy<0&&g.wy-duneHeight(g.scroll)<30&&duneSlope(g.scroll+g.vx*.1)<0);
+ assert.equal(g.state,'transition');assert(flights>5,'the board leaves the crests');
+});
+test('dunes: a landing against the slope costs speed, one along it keeps it',()=>{
+ const land=(vx,vy)=>{const g=new Game(()=>.5);g.start(6);g.intro=0;const x=g.scroll;Object.assign(g,{grounded:false,vx,vy,airTime:1,wy:duneHeight(x)+.5});for(let i=0;i<60&&!g.grounded;i++)g.update(1/120,{});return g;};
+ const x0=new Game(()=>.5);x0.start(6);const m=duneSlope(x0.scroll);
+ const good=land(500,500*m),bad=land(500,-500);assert(good.grounded&&bad.grounded);assert(good.u>bad.u*1.3);assert(bad.sounds.includes('hit'));
+});
+test('vines: releasing on the forward upswing reaches the next vine; hanging on lets the herd catch up',()=>{
+ const g=new Game(()=>.5);g.start(7);g.intro=0;let grabs=0;
+ for(let i=0;i<120*40&&g.state==='playing';i++){const was=g.mode;g.update(1/120,{hold:g.mode==='swing'?!(g.theta>.5&&g.omega>0):true});if(was!=='swing'&&g.mode==='swing')grabs++;}
+ assert.equal(g.state,'transition');assert(grabs>15);assert.equal(g.trips,0);
+ const idle=new Game(()=>.5);idle.start(7);idle.intro=0;for(let i=0;i<120*15&&idle.state==='playing';i++)idle.update(1/120,{hold:true});assert.equal(idle.state,'caught');
+});
+test('vines: falling to the floor is a trip, and holding again climbs back onto a vine',()=>{
+ const g=new Game(()=>.5);g.start(7);g.intro=0;g.update(1/120,{hold:false});assert.equal(g.mode,'fly');
+ let i=0;while(g.mode==='fly'&&i++<600)g.update(1/120,{hold:false});assert.equal(g.mode,'ground');assert.equal(g.trips,1);
+ for(let k=0;k<120;k++)g.update(1/120,{hold:true});assert.equal(g.mode,'swing');
+});
+test('ice: the skater keeps sliding after the key is released and turns slowly',()=>{
+ const s=new Game(()=>.5);s.start(8);s.intro=0;s.spawn=999;const surf=new Game(()=>.5);surf.start(1);surf.intro=0;surf.spawn=999;
+ tick(s,.3,{down:true});tick(surf,.3,{down:true});assert(s.surfY<surf.surfY,'slower to turn');
+ const v=s.surfVelocity;tick(s,.5);assert(s.surfVelocity>v*.6,'keeps gliding');
+ s.objects=[{x:s.playerX,y:s.surfY,type:'hole',hit:false,seed:0}];s.update(1/120);assert.equal(s.trips,1);
+});
+test('space: drifting, three thrusters on the giant meteor end the story with the finale',()=>{
+ const g=new Game(()=>.5);g.start(9);g.intro=0;g.spawn=999;tick(g,.4,{right:true});const vx=g.playerVX;assert(vx>100);tick(g,.3);assert(g.playerVX>vx*.4,'still drifting');
+ g.field=PHASES[9].field;g.objects=[];g.update(1/120);assert(g.boss);g.boss.x=g.viewWidth-130;
+ for(const b of g.beacons){const c=g.bossCenter();g.playerX=c.x+Math.cos(b.a)*248;g.surfY=(c.y+Math.sin(b.a)*248-90)/420;g.spawn=999;g.update(1/120);}
+ assert.equal(g.state,'transition');assert.equal(g.transitionFrom,9);tick(g,TRANSITIONS[9].length+.1);assert.equal(g.state,'won');
+});
+test('every phase now hands over to the next one through a cutscene',()=>{
+ assert.equal(TRANSITIONS.length,PHASES.length);
+ for(let k=0;k<PHASES.length-1;k++){const g=new Game(()=>.5);g.start(k);g.finishPhase();tick(g,TRANSITIONS[k].length+.05);assert.equal(g.phase,k+1,`after cutscene ${k}`);assert.equal(g.state,'playing');}
 });

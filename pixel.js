@@ -43,34 +43,37 @@ const HEADS={
  shock:['..hhhh..','.hhHHhh.','hhhhhhhh','hhhsssss','hhdsswke','hhssssss','.hsssmm.','..dsmm..','...ss...'],
  back:['..hhhh..','.hhHHhh.','hhhhhhhh','hhhhhhhh','dhhhhhhd','hhhhhhhh','.hhhhhh.','..ssss..','...ss...'],
  // Diving mask with its strap, and the regulator in the mouth.
+ beanie:['..cccc..','.cccccc.','cCcCcCcC','hhhsssss','hhdssske','hhssssss','.hsssms.','..dsss..','...ss...'],
  dive:['..hhhh..','.hhHHhh.','hhhhhhhh','bbbbbbbb','hhdsbggb','hhssbbbb','.hssssrr','..dsssr.','...ss...']
 };
-const HEAD_COLORS={h:PAL.hair,H:PAL.hairHi,s:PAL.skin,d:PAL.skinMid,k:PAL.ink,e:PAL.skin,w:PAL.white,m:'#9c3f3a',b:'#20242e',g:'#8fd3e8',r:'#f2d14a'};
+const HEAD_COLORS={h:PAL.hair,H:PAL.hairHi,s:PAL.skin,d:PAL.skinMid,k:PAL.ink,e:PAL.skin,w:PAL.white,m:'#9c3f3a',b:'#20242e',g:'#8fd3e8',r:'#f2d14a',c:'#d8443a',C:'#f4f4f4'};
 const GEAR={tank:'#f2b630',tankDark:'#c98a1e',valve:'#9aa3a8',hose:'#2a2d3a',fin:'#4fd0e0',finDark:'#2a9fb0'};
 function drawHero(s,pose,ox,oy){
+ const C=pose.palette?{...PAL,...pose.palette}:PAL,jet=pose.gear==='jet';
  const P=p=>[ox+p[0],oy+p[1]],seg=(a,b,w,c)=>{const [x0,y0]=P(a),[x1,y1]=P(b);s.line(x0,y0,x1,y1,w,c);},mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
  const back=pose.view==='back',gear=pose.gear;
  const leg=([root,knee,foot],far)=>{
-  seg(root,mix(root,knee,.6),4,far?PAL.shortsDark:PAL.shorts);seg(mix(root,knee,.55),knee,3,far?PAL.skinMid:PAL.skin);seg(knee,foot,3,far?PAL.skinMid:PAL.skin);
+  seg(root,mix(root,knee,.6),4,far?C.shortsDark:C.shorts);seg(mix(root,knee,.55),knee,3,far?C.skinMid:C.skin);seg(knee,foot,3,far?C.skinMid:C.skin);
   // Fins continue the shin past the foot, narrowing to the tip.
   if(gear==='full'){const dx=foot[0]-knee[0],dy=foot[1]-knee[1],l=Math.hypot(dx,dy)||1,tip=k=>[foot[0]+dx/l*k,foot[1]+dy/l*k];seg(foot,tip(4),3,far?GEAR.finDark:GEAR.fin);seg(tip(4),tip(8),2,far?GEAR.finDark:GEAR.fin);return;}
-  const [fx,fy]=P(foot);if(back){s.rect(fx-1,fy-1,3,2,far?PAL.shoeDark:PAL.shoe);s.rect(fx-1,fy+1,3,1,PAL.sole);}else{s.rect(fx-1,fy-1,5,2,far?PAL.shoeDark:PAL.shoe);s.rect(fx-1,fy+1,5,1,PAL.sole);}
+  const [fx,fy]=P(foot);if(back){s.rect(fx-1,fy-1,3,2,far?C.shoeDark:C.shoe);s.rect(fx-1,fy+1,3,1,C.sole);}else{s.rect(fx-1,fy-1,5,2,far?C.shoeDark:C.shoe);s.rect(fx-1,fy+1,5,1,C.sole);}
  };
- const arm=([root,elbow,hand],far)=>{seg(root,mix(root,elbow,.45),3,far?PAL.shirtDark:PAL.shirt);seg(mix(root,elbow,.4),elbow,3,far?PAL.skinMid:PAL.skin);seg(elbow,hand,2,far?PAL.skinMid:PAL.skin);const [hx,hy]=P(hand);s.rect(hx-1,hy-1,2,2,far?PAL.skinMid:PAL.skin);};
+ const arm=([root,elbow,hand],far)=>{seg(root,mix(root,elbow,.45),3,far?C.shirtDark:C.shirt);seg(mix(root,elbow,.4),elbow,3,far?C.skinMid:C.skin);seg(elbow,hand,2,far?C.skinMid:C.skin);const [hx,hy]=P(hand);s.rect(hx-1,hy-1,2,2,far?C.skinMid:C.skin);};
  const sh=pose.sh,hip=pose.hip;
  if(!back){arm(pose.farArm,true);leg(pose.farLeg,true);}else{leg(pose.farLeg,false);}
  // The air tank sits on the back: offset from the torso to the side opposite the face.
  let valve=null;
  if(gear){const dx=sh[0]-hip[0],dy=sh[1]-hip[1],l=Math.hypot(dx,dy)||1,ux=dx/l,uy=dy/l,nx=uy*4.5,ny=-ux*4.5,a=[hip[0]+nx+ux,hip[1]+ny+uy],b=[sh[0]+nx-ux,sh[1]+ny-uy];
-  seg(a,b,5,GEAR.tank);seg(mix(a,b,.25),mix(a,b,.32),5,GEAR.tankDark);valve=[b[0]+ux*2,b[1]+uy*2];seg(b,valve,2,GEAR.valve);}
- seg(hip,sh,back?7:6,PAL.shirt);
- if(!back){const b=[-2,0];seg([hip[0]+b[0],hip[1]],[sh[0]+b[0],sh[1]+1],2,PAL.shirtDark);}else seg([hip[0],hip[1]-1],[sh[0],sh[1]+3],1,PAL.shirtDark);
- const [hx,hy]=P(hip);s.rect(hx-(back?3:3),hy-1,back?7:6,3,PAL.shorts);
+  seg(a,b,jet?6:5,jet?'#9aa3a8':GEAR.tank);seg(mix(a,b,.25),mix(a,b,.32),jet?6:5,jet?'#6d747c':GEAR.tankDark);valve=jet?null:[b[0]+ux*2,b[1]+uy*2];if(valve)seg(b,valve,2,GEAR.valve);}
+ seg(hip,sh,back?7:6,C.shirt);
+ if(!back){const b=[-2,0];seg([hip[0]+b[0],hip[1]],[sh[0]+b[0],sh[1]+1],2,C.shirtDark);}else seg([hip[0],hip[1]-1],[sh[0],sh[1]+3],1,C.shirtDark);
+ const [hx,hy]=P(hip);s.rect(hx-(back?3:3),hy-1,back?7:6,3,C.shorts);
  leg(pose.nearLeg,false);
  if(back)arm(pose.farArm,false);
- seg(sh,mix(sh,pose.head,.55),2,PAL.skinMid);
+ seg(sh,mix(sh,pose.head,.55),2,C.skinMid);
  arm(pose.nearArm,false);
- const [cx,cy]=P(pose.head);s.grid(HEADS[gear?'dive':pose.headType||'right'],HEAD_COLORS,cx-4,cy-5);
+ const [cx,cy]=P(pose.head);if(pose.helmet)s.disc(cx,cy-1,7,'#bfe6f2');s.grid(HEADS[gear&&!jet?'dive':pose.headType||'right'],HEAD_COLORS,cx-4,cy-5);
+ if(pose.helmet){for(let a=0;a<40;a++){const r=a/40*Math.PI*2;s.plot(cx+Math.round(Math.cos(r)*7),cy-1+Math.round(Math.sin(r)*7),'#e8ecf0');}s.plot(cx+3,cy-6,'#ffffff');s.plot(cx+4,cy-5,'#ffffff');}
  if(valve){const [vx,vy]=P(valve);s.line(vx,vy,cx+3,cy+2,1,GEAR.hose);}
 }
 // Riding pose: hips on the saddle, hands on the bar, feet on pedals turning around the crank (two-bone leg).
@@ -115,6 +118,12 @@ const POSES={
  swim0:sidePose([-7,-11],[5,-14],[10,-16],[[-14,-10],[-21,-8]],[[-14,-13],[-21,-15]],[[10,-12],[15,-13]],[[9,-14],[14,-15]]),
  swim1:sidePose([-7,-11],[5,-14],[10,-16],[[-14,-11],[-21,-11]],[[-14,-12],[-21,-12]],[[8,-9],[11,-8]],[[8,-16],[11,-17]]),
  swim2:sidePose([-7,-11],[5,-14],[10,-16],[[-14,-13],[-21,-15]],[[-14,-10],[-21,-8]],[[4,-9],[6,-12]],[[4,-16],[7,-14]]),
+ hang0:sidePose([0,-14],[0,-26],[2,-31],[[2,-7],[4,0]],[[-2,-7],[-3,-1]],[[2,-35],[1,-42]],[[-1,-35],[0,-42]]),
+ hang1:sidePose([0,-14],[0,-26],[2,-31],[[4,-8],[8,-3]],[[1,-8],[5,-3]],[[2,-35],[1,-42]],[[-1,-35],[0,-42]]),
+ hang2:sidePose([0,-14],[0,-26],[2,-31],[[-2,-7],[-5,-1]],[[-4,-7],[-8,-1]],[[2,-35],[1,-42]],[[-1,-35],[0,-42]]),
+ skate0:sidePose([0,-15],[4,-25],[6,-30],[[3,-8],[5,0]],[[-5,-10],[-12,-6]],[[7,-21],[11,-19]],[[-2,-21],[-8,-17]]),
+ skate1:sidePose([0,-15],[4,-25],[6,-30],[[-1,-8],[1,0]],[[2,-9],[7,-5]],[[6,-21],[3,-15]],[[0,-21],[7,-18]]),
+ float:sidePose([0,-17],[2,-28],[3,-33],[[3,-9],[1,-1]],[[-2,-10],[-6,-3]],[[6,-27],[11,-26]],[[-2,-26],[-6,-23]]),
  swim3:sidePose([-7,-11],[5,-14],[10,-16],[[-14,-12],[-21,-12]],[[-14,-11],[-21,-11]],[[9,-11],[13,-12]],[[9,-15],[13,-15]])
 };
 const climbPose=(up)=>({view:'back',hip:[0,-15],sh:[0,-27],head:[0,-32],headType:'back',
@@ -138,6 +147,16 @@ const Art={
   A.hero.dive=[0,1,2,3].map(f=>wide({...POSES['swim'+f],gear:'full'}));A.hero.diveTumble=wide({...POSES.stumbleA,gear:'full'});A.hero.surfGear=frame({...POSES.surfDown,gear:'tank'});
   // Rider and bike in one sprite (wheels touch the bottom row), pedalling in four frames.
   const ride=(f,style)=>sprite(56,52,s=>{drawBike(s,28,50,f*.8);drawHero(s,bikePose(f,style),28,50);});
+  // Winter jacket and beanie on the ice; white suit, helmet and jetpack in space.
+  const coat={palette:{shirt:'#3f7fd0',shirtDark:'#2a5a9a',shorts:'#2a2d3a',shortsDark:'#1c1e28'},headType:'beanie'};
+  A.hero.skate=[0,1].map(f=>frame({...POSES['skate'+f],...coat}));A.hero.skateFall=frame({...POSES.stumbleA,...coat});A.hero.coatIdle=frame({...POSES.idle,...coat});A.hero.coatRun=[0,2,4,6].map(f=>frame({...runPose(f),...coat}));
+  const suit={palette:{shirt:'#e8ecf0',shirtDark:'#b7c0ca',shorts:'#d6dde4',shortsDark:'#a9b2bc',skin:'#e8ecf0',skinMid:'#b7c0ca',shoe:'#8a929c',shoeDark:'#6d747c',sole:'#4a5058'},gear:'jet',helmet:true};
+  A.hero.astro=frame({...POSES.float,...suit});A.hero.astroSpin=frame({...POSES.stumbleA,...suit,headType:'right'});
+  A.hero.hang=[0,1,0,2].map(f=>frame(POSES['hang'+f]));
+  // Sandboard and rider share a sprite so they rotate together with the slope.
+  const sandBoard=(s,y)=>{s.poly([[9,y],[13,y-2],[36,y-2],[40,y],[36,y+2],[13,y+2]],'#e0a24a');s.rect(13,y,22,1,'#a8452f');};
+  A.sand={ride:sprite(48,52,s=>{drawHero(s,POSES.surf,24,46);sandBoard(s,48);}),crouch:sprite(48,52,s=>{drawHero(s,POSES.surfDown,24,46);sandBoard(s,48);}),air:sprite(48,52,s=>{drawHero(s,POSES.surfJump,24,46);sandBoard(s,48);})};
+  A.sandboardUp=sprite(9,32,s=>{s.poly([[4,1],[7,6],[7,26],[4,30],[1,26],[1,6]],'#e0a24a');s.rect(4,4,1,24,'#a8452f');});
   A.rider={pedal:[0,1,2,3].map(f=>ride(f,'sit')),duck:ride(0,'duck'),stand:ride(1,'stand')};
   A.bike=sprite(56,52,s=>drawBike(s,28,50,0));
   A.board=sprite(30,7,s=>{s.poly([[1,3],[6,1],[24,1],[29,3],[24,5],[6,5]],'#fff0c4');s.rect(4,3,22,1,'#e8673f');s.rect(6,4,18,1,'#37939a');});
@@ -192,6 +211,19 @@ const Art={
    s.rect(11,30,10,15,'#5a3a28');s.rect(12,31,8,14,'#3b2a24');s.rect(16,31,1,14,'#5a3a28');s.rect(7,25,3,4,'#6ea4c4');s.rect(24,25,3,4,'#6ea4c4');s.rect(15,14,3,1,'#f4f4f4');s.rect(16,12,1,5,'#f4f4f4');});
   A.cross=sprite(5,7,s=>{s.rect(2,0,1,7,'#f2d14a');s.rect(0,2,5,1,'#f2d14a');},false);
   A.branch=sprite(46,60,s=>{s.rect(34,0,6,60,'#5a3a28');s.rect(35,0,2,60,'#7a5238');s.line(35,20,4,24,3,'#5a3a28');s.line(16,22,8,17,2,'#5a3a28');for(const [x,y,r] of [[6,22,5],[13,18,5],[21,21,4],[29,19,4],[9,15,4]])s.disc(x,y,r,'#2e5236');s.dither(2,12,30,8,'#4c7a4a',.35);});
+  A.cactus=[0,1].map(v=>sprite(20,30,s=>{const c='#4f8a3c';s.rect(8,4,5,26,c);s.ellipse(10,4,2,2,c);if(v){s.rect(2,10,3,10,c);s.rect(2,18,7,3,c);s.rect(15,6,3,9,c);s.rect(12,13,6,3,c);}else{s.rect(15,12,3,8,c);s.rect(12,18,6,3,c);}s.rect(10,6,1,22,'#6aa84f');for(let k=0;k<6;k++)s.plot(9+(k%2)*3,8+k*4,'#e8e4b0');}));
+  A.bones=sprite(22,10,s=>{s.ellipse(5,5,4,3,'#ece4cc');s.plot(4,4,'#3b2a24');s.plot(6,4,'#3b2a24');for(let k=0;k<4;k++)s.rect(10+k*3,4,1,5,'#ece4cc');s.rect(9,6,12,1,'#d6ccb0');});
+  A.hut=sprite(54,38,s=>{s.rect(4,14,40,23,'#c48a52');s.rect(4,14,40,2,'#9a6a3e');s.poly([[0,15],[24,3],[50,15]],'#8a5a34');s.rect(18,24,10,13,'#3b2a24');s.rect(6,2,44,9,'#f2e6c8');s.rect(46,10,2,14,'#6a4632');for(let k=0;k<9;k++)s.rect(9+k*4,5,3,3,k%2?'#d8443a':'#3f8f8a');s.rect(32,22,9,6,'#6ea4c4');});
+  A.buffalo=[0,1].map(f=>sprite(36,24,s=>{const c='#4a3428';s.ellipse(17,11,12,7,c);s.ellipse(28,11,5,5,c);s.poly([[30,6],[35,3],[33,8]],'#e8dcc0');s.poly([[26,6],[24,2],[28,6]],'#e8dcc0');for(const [x,d] of [[9,f?2:-2],[13,f?-2:2],[21,f?2:-2],[25,f?-2:2]])s.line(x,15,x+d,22,2,c);s.ellipse(14,7,8,3,'#5c4434');s.plot(30,10,'#120a08');}));
+  A.parrot=[0,1].map(f=>sprite(14,12,s=>{s.ellipse(6,6,4,3,'#d8443a');s.disc(10,4,2,'#d8443a');s.plot(12,4,'#f2d14a');s.poly(f?[[3,5],[7,0],[8,5]]:[[3,6],[7,11],[8,6]],'#3f7fd0');s.line(1,7,0,10,1,'#f2d14a');}));
+  A.penguin=[0,1].map(f=>sprite(14,18,s=>{s.ellipse(7,9,5,7,'#20242e');s.ellipse(8,10,3,5,'#f4f4f4');s.disc(7,3,3,'#20242e');s.plot(8,2,'#f4f4f4');s.rect(10,3,3,1,'#f2a23a');s.rect(f?3:5,16,3,2,'#f2a23a');s.rect(f?8:9,16,3,2,'#f2a23a');}));
+  A.bear=[0,1].map(f=>sprite(46,26,s=>{const c='#ece8dc';s.ellipse(20,12,15,8,c);s.ellipse(37,10,7,6,c);s.disc(33,4,2,c);s.ellipse(43,11,3,2,'#d6d0c0');s.plot(45,10,'#120a08');s.plot(39,8,'#120a08');for(const [x,d] of [[9,f?3:-3],[15,f?-3:3],[26,f?3:-3],[31,f?-3:3]])s.line(x,17,x+d,24,3,c);s.dither(8,14,26,5,'#c9c2b0',.4);}));
+  A.hole=sprite(40,12,s=>{s.ellipse(20,6,19,5,'#e8f6fb');s.ellipse(20,6,16,4,'#1d4f6e');s.ellipse(18,5,10,2,'#2a6f8a');},false);
+  A.rocket=sprite(30,84,s=>{s.poly([[15,0],[23,14],[23,64],[7,64],[7,14]],'#e8ecf0');s.poly([[15,0],[23,14],[7,14]],'#d8443a');s.rect(19,14,4,50,'#c4ccd4');s.poly([[7,52],[0,72],[7,66]],'#d8443a');s.poly([[23,52],[30,72],[23,66]],'#d8443a');s.rect(9,64,12,6,'#5d6372');s.disc(15,28,4,'#3f7fd0');s.disc(15,28,2,'#8fd3e8');s.rect(9,42,12,2,'#d8443a');for(let k=0;k<4;k++)s.plot(11+k*2,48,'#3b3d4f');});
+  A.gantry=sprite(22,90,s=>{for(let y=0;y<90;y+=10){s.line(2,y,18,y+10,1,'#d8a23a');s.line(18,y,2,y+10,1,'#d8a23a');}s.rect(1,0,2,90,'#b8852e');s.rect(17,0,2,90,'#b8852e');s.rect(17,30,6,3,'#b8852e');},false);
+  A.base=sprite(80,44,s=>{s.rect(2,18,60,25,'#d6dde4');s.rect(2,18,60,3,'#a9b2bc');for(let k=0;k<5;k++)s.rect(8+k*11,26,7,6,'#3f7fd0');s.rect(28,34,8,9,'#5d6372');s.rect(64,28,14,15,'#c4ccd4');s.line(70,28,70,8,1,'#5d6372');s.ellipse(70,6,8,3,'#e8ecf0');s.rect(6,4,1,14,'#5d6372');s.rect(7,4,8,5,'#d8443a');s.dither(2,40,76,3,'#ffffff',.6);});
+  A.asteroid=[5,7,9].map(r=>sprite(r*2+4,r*2+4,s=>{const c=r+2,rnd=seededRandom(r*17);s.disc(c,c,r,'#6d6a72');for(let k=0;k<6;k++){const a=rnd()*6.28;s.disc(c+Math.cos(a)*r*.75,c+Math.sin(a)*r*.75,Math.max(1,r*.35),'#6d6a72');}s.disc(c-1,c-1,r*.6,'#8a8790');s.disc(c+r*.3,c+r*.25,Math.max(1,r*.28),'#4f4c55');s.plot(c-r*.4,c-r*.3,'#4f4c55');}));
+  A.beacon=[0,1].map(on=>sprite(12,12,s=>{s.rect(2,3,8,8,'#9aa3a8');s.rect(3,4,6,6,'#6d747c');s.rect(5,0,2,4,'#c4ccd4');s.disc(6,7,2,on?'#7cf27a':'#ff4a3a');}));
   A.helipad=sprite(60,8,s=>{s.ellipse(30,4,28,3,'#4b5260');s.ellipse(30,4,25,2,'#606878');s.rect(25,3,2,3,'#f2d14a');s.rect(33,3,2,3,'#f2d14a');s.rect(27,4,6,1,'#f2d14a');},false);
  }
 };

@@ -13,10 +13,12 @@ const objs={
  2:[{x:520,y:.3,type:'jelly',seed:1},{x:700,y:.7,type:'wreck',variant:1,seed:2},{x:900,y:.45,type:'jelly',seed:3}],
  3:[{lane:0,y:200,type:'pot',warn:0},{lane:2,y:-90,type:'ac',warn:.3},{lane:1,y:60,type:'tv',warn:0}],
  4:[{x:560,y:.3,type:'meteor',size:1.3,vx:-100,vy:.1,seed:1},{x:800,y:.7,type:'meteor',size:.8,vx:-60,vy:.2,seed:2},{x:420,y:.05,type:'meteor',size:1,vx:-60,vy:.4,seed:3}],
- 5:[{x:430,type:'crack'},{x:700,type:'branch'},{x:950,type:'rock'}]
+ 5:[{x:430,type:'crack'},{x:700,type:'branch'},{x:950,type:'rock'}],
+ 8:[{x:480,y:.3,type:'hole',seed:1},{x:700,y:.65,type:'penguin',seed:2,vy:.1},{x:900,y:.45,type:'bear',seed:3}],
+ 9:[{x:520,y:.3,type:'asteroid',size:1.2,vx:80,vy:0,seed:1},{x:760,y:.7,type:'asteroid',size:.8,vx:60,vy:0,seed:2}]
 };
 const play=section('cenas','Fases');
-for(let p=0;p<6;p++)scene(play,'Fase '+(p+1),(g,r)=>{g.start(p);g.intro=0;g.time=3.3;g.scroll=1600;g.speed=260;g.runCycle=.3;g.objects=objs[p].map(o=>({...o,hit:false}));if(p===1||p===2){g.surfY=.5;g.playerX=300;}if(p===3)g.distance=10;if(p===4){g.surfY=.45;g.health=2;}if(p===0||p===5){g.waveFront=175;g.trips=1;}});
+for(let p=0;p<PHASES.length;p++)scene(play,'Fase '+(p+1),(g,r)=>{g.start(p);g.intro=0;g.time=3.3;if(p<6){g.scroll=1600;g.speed=260;}g.runCycle=.3;g.objects=(objs[p]||[]).map(o=>({...o,hit:false}));if(p===6){for(let i=0;i<300;i++)g.update(1/120,{hold:duneSlope(g.scroll)<.05});}if(p===7){for(let i=0;i<200;i++)g.update(1/120,{hold:true});}if(p===8){g.surfY=.5;g.playerX=300;g.trips=1;g.waveFront=175;}if(p===9){g.surfY=.45;}if(p===1||p===2){g.surfY=.5;g.playerX=300;}if(p===3)g.distance=10;if(p===4){g.surfY=.45;g.health=2;}if(p===0||p===5){g.waveFront=175;g.trips=1;}});
 const extra=section('extra','Momentos');
 scene(extra,'Fase 1 — pulo',(g)=>{g.start(0);g.intro=0;g.time=2;g.scroll=900;g.speed=260;g.y=90;g.vy=200;});
 scene(extra,'Fase 1 — tropeço',(g)=>{g.start(0);g.intro=0;g.time=2;g.scroll=900;g.speed=90;g.stumble=.6;g.trips=2;g.waveFront=240;});
@@ -26,16 +28,22 @@ scene(extra,'Fase 6 — rio',(g)=>{g.start(5);g.intro=0;g.time=2;g.scroll=10100;
 scene(extra,'Fase 6 — abaixado',(g)=>{g.start(5);g.intro=0;g.time=2;g.scroll=3000;g.speed=340;g.duckTime=.3;g.objects=[{x:310,type:'branch',hit:false}];});
 scene(extra,'Fase 6 — pulo',(g)=>{g.start(5);g.intro=0;g.time=2;g.scroll=3300;g.speed=340;g.y=100;g.vy=100;g.objects=[{x:330,type:'crack',hit:false}];});
 scene(extra,'Fase 6 — pego',(g)=>{g.start(5);g.state='caught';g.caughtTime=.6;g.waveFront=400;g.scroll=2000;});
+scene(extra,'Fase 7 — voando',(g)=>{g.start(6);g.intro=0;g.time=2;let i=0;while(g.grounded&&i++<3000)g.update(1/120,{hold:g.grounded?duneSlope(g.scroll)<.05:false});for(let k=0;k<20;k++)g.update(1/120,{});});
+scene(extra,'Fase 7 — tempestade perto',(g)=>{g.start(6);g.intro=0;g.time=2;g.gap=120;});
+scene(extra,'Fase 8 — voo entre cipós',(g)=>{g.start(7);g.intro=0;for(let i=0;i<120*3;i++)g.update(1/120,{hold:g.mode==='swing'?!(g.theta>.5&&g.omega>0):g.wx<g.anchor.x+200&&false});});
+scene(extra,'Fase 8 — no chão',(g)=>{g.start(7);g.intro=0;g.mode='ground';g.wy=126;g.trips=2;g.waveFront=260;g.runCycle=.4;});
+scene(extra,'Fase 10 — meteoro gigante',(g)=>{g.start(9);g.intro=0;g.field=16;g.update(1/120);g.boss.x=g.viewWidth-130;g.beacons[0].done=true;g.distance=1;g.time=3;});
 scene(extra,'Fase 3 — tubarão pegou',(g)=>{g.start(2);g.state='caught';g.caughtTime=.8;g.waveFront=400;g.surfY=.5;});
 const open=section('abertura','Abertura');
 for(const t of [1,3.2,4.6,5.2,5.9,7,8.6,9.8])scene(open,'t='+t,(g)=>{g.beginOpening();g.openingTime=t;g.time=t;});
 const trans=section('transicoes','Transições');
-const TIMES={1:[.5,1.1,2.0,2.6,3.8],4:[.9,2.2,3.5,4.2,5.3,6.0,6.5,7.3],5:[.6,1.6,3.2]};
-for(let k=0;k<6;k++)for(const t of (TIMES[k]||[.4,1.5,2.6]))scene(trans,`${k+1}→${k+2} t=${t}`,(g)=>{g.start(k);g.state='transition';g.transitionFrom=k;g.transitionTime=t;g.time=t;g.scroll=1200;g.waveFront=110;});
+const TIMES={1:[.5,1.1,2.0,2.6,3.8],4:[.9,2.2,3.5,4.2,5.3,6.0,6.5,7.3],5:[.6,1.6,3.8,4.6,5.3,6.6,7.3,8.0,8.9],6:[.8,2.2,3.6,5.0,5.9,6.4],7:[.6,2.2,3.5,4.4,5.4,6.0,6.6],8:[.4,1.2,3.0,5.0,6.2,6.9,7.6,8.2],9:[1,3,4.3,5.2,8,10.5]};
+for(let k=0;k<PHASES.length;k++)for(const t of (TIMES[k]||[.4,1.5,2.6]))scene(trans,`${k+1}→${k+2} t=${t}`,(g)=>{g.start(k);g.state='transition';g.transitionFrom=k;g.transitionTime=t;g.time=t;g.scroll=1200;g.waveFront=110;});
 const spr=section('sprites','Sprites');
 function showSprite(name,img,zoom=4){const f=document.createElement('figure'),c=document.createElement('canvas');c.className='sprite';c.width=img.width;c.height=img.height;c.getContext('2d').drawImage(img,0,0);c.style.width=img.width*zoom+'px';const cap=document.createElement('figcaption');cap.textContent=name;f.append(c,cap);spr.append(f);}
 Art.hero.run.forEach((c,i)=>showSprite('run'+i,c));for(const [k,v] of Object.entries(Art.hero))if(v instanceof HTMLCanvasElement)showSprite(k,v);Art.hero.climb.forEach((c,i)=>showSprite('climb'+i,c));
-for(const k of ['board','boardUp','rack','log','cooler','debris','pot','ac','tv','rock','trunk','palm','chair','paper','helipad','diveKit','chapel','branch','bike'])showSprite(k,Art[k],3);
+for(const k of ['board','boardUp','rack','log','cooler','debris','pot','ac','tv','rock','trunk','palm','chair','paper','helipad','diveKit','chapel','branch','bike','sandboardUp','bones','hut','hole','rocket','gantry','base'])showSprite(k,Art[k],3);
+for(const k of ['cactus','buffalo','parrot','penguin','bear','asteroid','beacon'])Art[k].forEach((c,i)=>showSprite(k+i,c,3));for(const k of ['ride','crouch','air'])showSprite('sand-'+k,Art.sand[k]);
 Art.hero.dive.forEach((c,i)=>showSprite('dive'+i,c));Art.rider.pedal.forEach((c,i)=>showSprite('pedal'+i,c));showSprite('duck',Art.rider.duck);showSprite('stand',Art.rider.stand);
 for(const k of ['cars','wreck','jelly','shark','meteor','heli','pine','tree'])Art[k].forEach((c,i)=>showSprite(k+i,c,3));
 </script>
