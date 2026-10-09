@@ -1,6 +1,7 @@
 (() => {
 'use strict';
-const $=id=>document.getElementById(id),canvas=$('scene'),game=new ApocalipseGame(),renderer=new PixelRenderer(canvas),input={up:false,down:false,left:false,right:false,target:null},audio=new GameAudio();
+// A missing element (for instance a page cached from an older version) must not stop the game: it gets a detached stand-in.
+const stand={},$=id=>document.getElementById(id)||stand[id]||(stand[id]=document.createElement('div')),canvas=$('scene'),game=new ApocalipseGame(),renderer=new PixelRenderer(canvas),input={up:false,down:false,left:false,right:false,target:null},audio=new GameAudio();
 let lastSaved=-1,last=0,accumulator=0,messageTime=0,shownState='menu',lastTrip=-1,ready=false,uiElapsed=0;
 const fixedStep=1/120;
 const INFO=[

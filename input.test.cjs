@@ -1,9 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),{ApocalipseGame:Game,PHASES}=require('./engine.js');
-function load(extra={}){
+function load(extra={},missing=[]){
  let game;const handlers={},elements={};
  const element=()=>{const e={style:{},hidden:false,textContent:'',innerHTML:'',classList:{toggle(){},add(){},remove(){}},listeners:{},addEventListener(name,fn){e.listeners[name]=fn;},setAttribute(){},append(){},querySelector:()=>element(),getBoundingClientRect:()=>({left:0,top:0,width:1100,height:600}),setPointerCapture(){}};return e;};
  const context={ApocalipseGame:class extends Game{constructor(){super();game=this;}},PHASES,PixelRenderer:class{constructor(){this.width=1100;this.W=367;this.scale=1}resize(){}draw(){}prepare(){}},GameAudio:class{constructor(){this.enabled=true}update(){}unlock(){}},
-  document:{getElementById(id){return elements[id]??=element()},createElement:()=>element(),addEventListener(){},documentElement:element()},window:{addEventListener(name,fn){handlers[name]=fn}},requestAnimationFrame(){},console,...extra};
+  document:{getElementById(id){return missing.includes(id)?null:elements[id]??=element()},createElement:()=>element(),addEventListener(){},documentElement:element()},window:{addEventListener(name,fn){handlers[name]=fn}},requestAnimationFrame(){},console,...extra};
  vm.createContext(context);vm.runInContext(fs.readFileSync('game.js','utf8'),context);return {game,handlers,elements};
 }
 const key=(handlers,k,repeat=false)=>handlers.keydown({key:k,repeat,preventDefault(){}});
@@ -55,4 +55,14 @@ test('the menu offers to continue from the last phase reached, and the story kee
  assert.equal(again.elements.continue.hidden,false);assert.match(again.elements.continue.innerHTML,/FASE 06 O VULCÃO/);
  again.elements.continue.onclick();assert.equal(again.game.phase,5);assert.equal(again.game.state,'playing');
  again.game.state='won';for(let i=0;i<10;i++)step();assert.equal(store['apocalipse-fase'],undefined,'finishing the story clears it');
+});
+
+test('a page cached from an older version, missing newer elements, still loads',async()=>{
+ const frames=[];const {game,elements}=load({requestAnimationFrame:cb=>frames.push(cb)},['stick','knob','continue','hold','holdControls','duck','bikeControls','up','down']);let now=0;
+ for(let i=0;i<5;i++){for(const cb of frames.splice(0))cb(now+=16);await new Promise(r=>setImmediate(r));}
+ assert.equal(elements.start.disabled,false,'the start button is enabled once loading finished');game.start(1);for(let i=0;i<5;i++)for(const cb of frames.splice(0))cb(now+=16);
+});
+test('every script and stylesheet in the page carries the same version, so phones never mix old and new files',()=>{
+ const html=fs.readFileSync('index.html','utf8'),assets=[...html.matchAll(/(?:src|href)="((?:engine|pixel|renderer|audio|game)\.js|style\.css)(\?v=[^"]+)?"/g)];
+ assert.equal(assets.length,6);const versions=new Set(assets.map(a=>a[2]));assert.equal(versions.size,1);const v=[...versions][0];assert(v&&v.startsWith('?v='),'files are versioned');
 });
