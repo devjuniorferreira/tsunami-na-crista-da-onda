@@ -1,10 +1,10 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),{ApocalipseGame:Game,PHASES}=require('./engine.js');
-function load(){
+function load(extra={}){
  let game;const handlers={},elements={};
- const element=()=>{const e={style:{},hidden:false,textContent:'',innerHTML:'',classList:{toggle(){}},addEventListener(){},setAttribute(){},append(){},querySelector:()=>element(),getBoundingClientRect:()=>({left:0,top:0,width:1100,height:600}),setPointerCapture(){}};return e;};
+ const element=()=>{const e={style:{},hidden:false,textContent:'',innerHTML:'',classList:{toggle(){},add(){},remove(){}},listeners:{},addEventListener(name,fn){e.listeners[name]=fn;},setAttribute(){},append(){},querySelector:()=>element(),getBoundingClientRect:()=>({left:0,top:0,width:1100,height:600}),setPointerCapture(){}};return e;};
  const context={ApocalipseGame:class extends Game{constructor(){super();game=this;}},PHASES,PixelRenderer:class{constructor(){this.width=1100;this.W=367;this.scale=1}resize(){}draw(){}prepare(){}},GameAudio:class{constructor(){this.enabled=true}update(){}unlock(){}},
-  document:{getElementById(id){return elements[id]??=element()},createElement:()=>element(),addEventListener(){},documentElement:element()},window:{addEventListener(name,fn){handlers[name]=fn}},requestAnimationFrame(){},console};
- vm.createContext(context);vm.runInContext(fs.readFileSync('game.js','utf8'),context);return {game,handlers};
+  document:{getElementById(id){return elements[id]??=element()},createElement:()=>element(),addEventListener(){},documentElement:element()},window:{addEventListener(name,fn){handlers[name]=fn}},requestAnimationFrame(){},console,...extra};
+ vm.createContext(context);vm.runInContext(fs.readFileSync('game.js','utf8'),context);return {game,handlers,elements};
 }
 const key=(handlers,k,repeat=false)=>handlers.keydown({key:k,repeat,preventDefault(){}});
 test('Up jumps while running, does not repeat, and remains steering during surfing',()=>{
@@ -12,4 +12,34 @@ test('Up jumps while running, does not repeat, and remains steering during surfi
 });
 test('arrows change column once per press on the building, with Caps Lock too',()=>{
  const {game,handlers}=load();game.start(3);game.intro=0;key(handlers,'ArrowLeft');assert.equal(game.lane,0);key(handlers,'ArrowLeft',true);assert.equal(game.lane,0);key(handlers,'D');assert.equal(game.lane,1);key(handlers,'ArrowRight');assert.equal(game.lane,2);
+});
+
+async function booted(){
+ const frames=[];const loaded=load({requestAnimationFrame:cb=>frames.push(cb)});let now=0;
+ const step=()=>{const pending=frames.splice(0);for(const cb of pending)cb(now+=16);};
+ for(let i=0;i<5;i++){step();await new Promise(r=>setImmediate(r));}
+ return {...loaded,step,canvas:loaded.elements.scene.listeners};
+}
+const ev=(id,x,y)=>({pointerId:id,clientX:x,clientY:y,preventDefault(){}});
+test('the analog stick steers in proportion to how far it is pushed, and springs back on release',async()=>{
+ const {game,step,canvas,elements}=await booted();game.start(1);game.intro=0;game.spawn=999;game.surfY=.5;
+ canvas.pointerdown(ev(1,200,300));assert(elements.stick.classList,'stick element exists');
+ canvas.pointermove(ev(1,200,325));for(let i=0;i<20;i++)step();const half=game.surfY-.5;
+ game.surfY=.5;game.surfVelocity=0;canvas.pointermove(ev(1,200,380));for(let i=0;i<20;i++)step();const full=game.surfY-.5;
+ assert(half>0&&full>half*1.5,'pushing further steers faster');
+ canvas.pointerup(ev(1,200,380));for(let i=0;i<30;i++)step();assert(Math.abs(game.surfVelocity)<.01,'released stick stops steering');
+});
+test('two fingers: one holds the stick while the other taps to jump; a quick tap alone also jumps',async()=>{
+ const {game,step,canvas}=await booted();game.start(1);game.intro=0;game.spawn=999;
+ canvas.pointerdown(ev(1,200,300));canvas.pointermove(ev(1,200,350));canvas.pointerdown(ev(2,800,300));assert(game.jumpTime>0,'second finger jumps');
+ for(let i=0;i<10;i++)step();assert(game.surfY>.5,'the stick kept steering');
+ canvas.pointerup(ev(2,800,300));canvas.pointerup(ev(1,200,350));
+ game.jumpTime=0;game.jumpCooldown=0;canvas.pointerdown(ev(3,500,300));canvas.pointerup(ev(3,500,300));assert(game.jumpTime>0,'a tap without dragging jumps');
+});
+test('in space the stick reaches the thrusters on the right side of a wide screen',async()=>{
+ const {game,step,canvas}=await booted();game.start(9);game.intro=0;game.viewWidth=1270;game.spawn=999;game.field=PHASES[9].field;game.update(1/120);game.boss.x=game.viewWidth-130;
+ const c=game.bossCenter(),goal=c.x-238;assert(goal>600,'the thruster point is beyond the old 560 limit');
+ canvas.pointerdown(ev(1,200,300));
+ for(let i=0;i<60*8&&game.distance===0;i++){const py=90+game.surfY*420,dx=goal-game.playerX,dy=c.y-py,d=Math.hypot(dx,dy)||1;canvas.pointermove(ev(1,200+dx/d*50,300+dy/d*50));game.spawn=999;game.objects=[];step();}
+ assert(game.distance>=1,'a thruster was installed with the stick');
 });

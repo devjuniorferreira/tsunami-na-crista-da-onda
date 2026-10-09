@@ -18,10 +18,10 @@ const PHASES=[
 // Dune profile in world units (y up) and its slope.
 const duneHeight=x=>85*Math.sin(x/200)+20*Math.sin(x/77);
 const duneSlope=x=>85/200*Math.cos(x/200)+20/77*Math.cos(x/77);
-const VINE_HANDS=126,VINE_SPACING=360,VINE_REACH=310,SPACE_BOSS_R=230,STORM_START=520;
+const BEACON_REACH=62,VINE_HANDS=126,VINE_SPACING=360,VINE_REACH=310,SPACE_BOSS_R=230,STORM_START=520;
 const DUCK_TIME=1;
 const LOW_OBSTACLES=new Set(['log','trunk','crack']);
-const START_EVENTS=['A onda invadiu a avenida! Corra até a prancha.','PEGOU A PRANCHA! Arraste na água ou use as setas.','DEBAIXO D’ÁGUA! Fuja do tubarão — IMPULSO acelera.','SUBA O PRÉDIO! Troque de coluna para desviar.','DECOLAMOS! Desvie dos meteoros.','DESÇA DE BICICLETA! Pule pedras e fendas, abaixe nos galhos.','SEGURE nas descidas, SOLTE nos topos para voar!','SEGURE para agarrar o cipó, SOLTE para se lançar!','O LAGO CONGELOU! Deslize… e cuidado, não dá para frear.','GRAVIDADE ZERO! Atravesse os asteroides.'];
+const START_EVENTS=['A onda invadiu a avenida! Corra até a prancha.','PEGOU A PRANCHA! Use o analógico ou as setas.','DEBAIXO D’ÁGUA! Fuja do tubarão — IMPULSO acelera.','SUBA O PRÉDIO! Troque de coluna para desviar.','DECOLAMOS! Desvie dos meteoros.','DESÇA DE BICICLETA! Pule pedras e fendas, abaixe nos galhos.','SEGURE nas descidas, SOLTE nos topos para voar!','SEGURE para agarrar o cipó, SOLTE para se lançar!','O LAGO CONGELOU! Deslize… e cuidado, não dá para frear.','GRAVIDADE ZERO! Atravesse os asteroides.'];
 const CHASE_EVENTS={
  wave:['TROPEÇOU! A onda ficou mais perto.','SEGUNDO TROPEÇO! Mais um e a onda pega você.','A ONDA ALCANÇOU VOCÊ!'],
  shark:['BATEU! O tubarão está chegando…','O TUBARÃO ESTÁ COLADO! Cuidado!','O TUBARÃO TE PEGOU!'],
@@ -120,8 +120,9 @@ class ApocalipseGame {
   const travel=this.speed*dt;this.scroll+=travel;this.distance+=travel*cfg.mpu;this.runCycle+=dt*(kind==='swim'?1.6:1);
   const minX=kind==='heli'?160:220,maxX=kind==='heli'?Math.min(560,this.viewWidth-200):Math.min(480,this.viewWidth-140);
   const direction=(input.down?1:0)-(input.up?1:0),side=(input.right?1:0)-(input.left?1:0);
-  const vertical=direction||(input.target?clamp((input.target.y-this.surfY)*7,-1,1):0);
-  const horizontal=side||(input.target?clamp((input.target.x-this.playerX)/45,-1,1):0);
+  const st=input.stick||{x:0,y:0};
+  const vertical=direction||st.y||(input.target?clamp((input.target.y-this.surfY)*7,-1,1):0);
+  const horizontal=side||st.x||(input.target?clamp((input.target.x-this.playerX)/45,-1,1):0);
   // On ice the skater keeps gliding: slow to turn, slower to stop.
   const grip=kind==='skate'?[2.4,.55]:[13,18],gripX=kind==='skate'?[2.4,.55]:[12,18];
   this.surfVelocity+=(vertical*(kind==='skate'?.8:.96)-this.surfVelocity)*(1-Math.exp(-dt*(vertical?grip[0]:grip[1])));
@@ -207,17 +208,17 @@ class ApocalipseGame {
   const side=(input.right?1:0)-(input.left?1:0),vert=(input.down?1:0)-(input.up?1:0);
   const py=90+this.surfY*420,tx=input.target?clamp((input.target.x-this.playerX)/60,-1,1):0,ty=input.target?clamp((90+input.target.y*420-py)/60,-1,1):0;
   // Thrusters push; a light drag keeps the drift controllable.
-  this.playerVX+=(side||tx)*520*dt;this.surfVelocity+=(vert||ty)*1.25*dt;const drag=Math.exp(-dt*1.4);this.playerVX*=drag;this.surfVelocity*=drag;
+  const st=input.stick||{x:0,y:0};this.playerVX+=(side||st.x||tx)*520*dt;this.surfVelocity+=(vert||st.y||ty)*1.25*dt;const drag=Math.exp(-dt*1.4);this.playerVX*=drag;this.surfVelocity*=drag;
   this.playerX=clamp(this.playerX+this.playerVX*dt,110,W-90);this.surfY=clamp(this.surfY+this.surfVelocity*dt,.06,.94);
   if(this.playerX===110||this.playerX===W-90)this.playerVX*=-.3;if(this.surfY===.06||this.surfY===.94)this.surfVelocity*=-.3;
   this.speed=cfg.speed;this.scroll+=cfg.speed*dt;this.spawn-=dt;
   if(this.field<cfg.field){if(this.spawn<=0&&this.field<cfg.field-2){const size=.7+r()*.6;this.objects.push({x:W+60,y:.05+r()*.9,vx:40+r()*120,vy:(r()-.5)*.06,type:'asteroid',size,hit:false,seed:this.time});this.spawn=.65+r()*.4;}}
   else{
-   if(!this.boss){this.boss={x:W+SPACE_BOSS_R+80};this.event='O METEORO GIGANTE! Instale os 3 propulsores.';this.sounds.push('warning');
+   if(!this.boss){this.boss={x:W+SPACE_BOSS_R+80};this.event='O METEORO GIGANTE! Encoste nos 3 pontos vermelhos dele.';this.sounds.push('warning');
     this.beacons=[2.55,Math.PI,3.73].map(a=>({a,done:false}));}
    this.boss.x+=((W-130)-this.boss.x)*(1-Math.exp(-dt*1.2));
    const c=this.bossCenter(),pyNow=90+this.surfY*420;
-   for(const b of this.beacons){if(b.done)continue;const bx=c.x+Math.cos(b.a)*(SPACE_BOSS_R+8),by=c.y+Math.sin(b.a)*(SPACE_BOSS_R+8);if(Math.hypot(bx-this.playerX,by-pyNow)<48){b.done=true;this.distance++;this.sounds.push('pickup');this.event=`PROPULSOR ${this.distance}/3 INSTALADO!`;}}
+   for(const b of this.beacons){if(b.done)continue;const bx=c.x+Math.cos(b.a)*(SPACE_BOSS_R+8),by=c.y+Math.sin(b.a)*(SPACE_BOSS_R+8);if(Math.hypot(bx-this.playerX,by-pyNow)<BEACON_REACH){b.done=true;this.distance++;this.sounds.push('pickup');this.event=this.distance<3?`PROPULSOR ${this.distance}/3 INSTALADO! Siga a seta para o próximo.`:'PROPULSOR 3/3 INSTALADO!';}}
    // The meteor sheds chunks toward the hero.
    if(this.spawn<=0&&this.boss.x<W){const a=Math.PI*(.65+r()*.7),sx=c.x+Math.cos(a)*SPACE_BOSS_R,sy=c.y+Math.sin(a)*SPACE_BOSS_R;this.objects.push({x:sx,y:(sy-90)/420,vx:-cfg.speed+60+r()*60,vy:(r()-.5)*.12,type:'chunk',size:.55+r()*.3,hit:false,seed:this.time});this.spawn=1.2+r()*.5;}
    const dx=this.playerX-c.x,dy=pyNow-c.y,d=Math.hypot(dx,dy),min=SPACE_BOSS_R+20;
