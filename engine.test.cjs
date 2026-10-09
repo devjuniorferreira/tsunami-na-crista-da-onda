@@ -163,3 +163,12 @@ test('every phase now hands over to the next one through a cutscene',()=>{
  assert.equal(TRANSITIONS.length,PHASES.length);
  for(let k=0;k<PHASES.length-1;k++){const g=new Game(()=>.5);g.start(k);g.finishPhase();tick(g,TRANSITIONS[k].length+.05);assert.equal(g.phase,k+1,`after cutscene ${k}`);assert.equal(g.state,'playing');}
 });
+
+test('bike: a tap ducks for a full second, and holding the key keeps him down until it is released',()=>{
+ const ride=()=>{const g=new Game(()=>.5);g.start(5);g.intro=0;g.spawn=999;g.course=[];tick(g,1);return g;};
+ let g=ride();g.duck();tick(g,.9);assert(g.duckTime>0,'still low after .9 s');tick(g,.2);assert.equal(g.duckTime,0);
+ g=ride();g.duck();tick(g,2.5,{duck:true});assert(g.duckTime>0,'held down');g.objects=[{x:300,type:'branch',hit:false}];g.update(1/120,{duck:true});assert.equal(g.trips,0);
+ tick(g,.3);assert.equal(g.duckTime,0,'stands up shortly after release');
+ // A duck pressed early, well before the branch, still gets him under it.
+ g=ride();g.objects=[{x:300+g.speed*.85,type:'branch',hit:false}];g.duck();tick(g,1);assert.equal(g.trips,0);
+});

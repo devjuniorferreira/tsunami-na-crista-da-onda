@@ -14,8 +14,8 @@ const INFO=[
   lost:['A ÁGUA<br><em>TE ALCANÇOU.</em>','Olhe os avisos “!” no alto: eles mostram de onde as coisas vão cair.','← → ou toque nos lados da tela para trocar de coluna.']},
  {chapter:'05 / O CÉU',objective:'DESVIE DOS METEOROS',unit:'m',jump:'',tip:'ARRASTE OU USE AS SETAS: PILOTAR',
   lost:['O HELICÓPTERO<br><em>CAIU.</em>','Os meteoros vêm da direita e de cima. Fique mais à esquerda para ter tempo de reagir.','Arraste ou use as setas para pilotar.']},
- {chapter:'06 / O VULCÃO',objective:'DESÇA ATÉ O RIO',unit:'m',jump:'PULAR ↗',tip:'↑ / ESPAÇO: PULAR · ↓: ABAIXAR · TOQUE EM CIMA OU EMBAIXO',threat:['A LAVA ESTÁ DESCENDO','A LAVA ESTÁ MAIS PERTO','PERIGO · ÚLTIMA CHANCE','A LAVA TE ALCANÇOU'],
-  lost:['A LAVA<br><em>TE PEGOU.</em>','Pule pedras, troncos e fendas de lava. Nos galhos baixos, abaixe — pular faz você bater a cabeça.','↑, espaço ou PULAR para saltar. ↓ ou ABAIXAR para passar sob os galhos.']},
+ {chapter:'06 / O VULCÃO',objective:'DESÇA ATÉ O RIO',unit:'m',jump:'PULAR ↗',tip:'↑ / ESPAÇO: PULAR · SEGURE ↓: ABAIXADO · TOQUE EM CIMA OU EMBAIXO',threat:['A LAVA ESTÁ DESCENDO','A LAVA ESTÁ MAIS PERTO','PERIGO · ÚLTIMA CHANCE','A LAVA TE ALCANÇOU'],
+  lost:['A LAVA<br><em>TE PEGOU.</em>','Pule pedras, troncos e fendas de lava. Nos galhos baixos, abaixe — pular faz você bater a cabeça.','↑, espaço ou PULAR para saltar. Segure ↓ ou ABAIXAR para continuar abaixado sob os galhos.']},
  {chapter:'07 / O DESERTO',objective:'FUJA DA TEMPESTADE',unit:'m',jump:'',hold:'SEGURAR',tip:'SEGURE (ESPAÇO OU TOQUE) NAS DESCIDAS · SOLTE ANTES DO TOPO',threat:['A TEMPESTADE ESTÁ LONGE','A TEMPESTADE ESTÁ CHEGANDO','PERIGO · ACELERE!','A TEMPESTADE TE ENGOLIU'],
   lost:['A TEMPESTADE<br><em>TE ENGOLIU.</em>','Segure nas descidas para ganhar velocidade e solte antes do topo para voar. Pouse na descida da próxima duna — segurar na subida freia.','Espaço, toque na tela ou SEGURAR.']},
  {chapter:'08 / A FLORESTA',objective:'FUJA DA MANADA',unit:'m',jump:'',hold:'SEGURAR',tip:'SEGURE: PENDURAR · SOLTE NO ALTO DO BALANÇO · SEGURE DE NOVO: AGARRAR',threat:['A MANADA ESTÁ LONGE','A MANADA ESTÁ MAIS PERTO','PERIGO · ÚLTIMA CHANCE','A MANADA TE ALCANÇOU'],
@@ -38,7 +38,7 @@ $('fullscreen').onclick=async()=>{const root=document.documentElement;try{if(ful
 function resize(){renderer.resize();game.viewWidth=renderer.width;renderer.menuDrawn=false;}
 window.addEventListener('resize',resize);resize();
 for(const event of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(event,()=>{fullscreenButton();resize();});
-function clearInput(){input.up=input.down=input.left=input.right=input.hold=false;input.target=null;}
+function clearInput(){input.up=input.down=input.left=input.right=input.hold=input.duck=false;input.target=null;}
 function showOverlay(kicker,title,story,label,instructions){$('overlay').hidden=false;text('kicker',kicker);$('overlay').querySelector('h1').innerHTML=title;text('story',story);$('start').innerHTML=label+' <span>↗</span>';$('chapters').hidden=true;$('phaseList').hidden=true;$('story').hidden=false;$('choose').setAttribute('aria-expanded','false');$('controls').hidden=true;$('caption').textContent='';text('instructions',instructions);}
 function ui(){
  const state=game.state,info=INFO[game.phase],cfg=game.config,active=state==='playing',cinematic=state==='opening'||state==='transition'||(state==='paused'&&(game.resumeState==='opening'||game.resumeState==='transition'));
@@ -68,21 +68,21 @@ $('skip').onclick=()=>{game.finishOpening();ui();};
 $('pause').onclick=()=>{game.pause();clearInput();ui();};
 $('jump').addEventListener('pointerdown',e=>{e.preventDefault();game.jump();});
 for(const key of ['up','down']){const b=$(key);b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);input[key]=true;});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>input[key]=false);}
-$('duck').addEventListener('pointerdown',e=>{e.preventDefault();game.duck();});
+{const b=$('duck');b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);input.duck=true;game.duck();});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>input.duck=false);}
 {const b=$('hold');b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);input.hold=true;});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>input.hold=false);}
 $('left').addEventListener('pointerdown',e=>{e.preventDefault();game.move(-1);});$('right').addEventListener('pointerdown',e=>{e.preventDefault();game.move(1);});
 const keyOf=e=>e.key.length===1?e.key.toLowerCase():e.key;
 window.addEventListener('keydown',e=>{
  const key=keyOf(e),kind=game.config.kind;if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Escape'].includes(e.key))e.preventDefault();
  if(kind==='climb'){if(!e.repeat&&(key==='ArrowLeft'||key==='a'))game.move(-1);if(!e.repeat&&(key==='ArrowRight'||key==='d'))game.move(1);}
- else if(kind==='bike'){if(!e.repeat&&(key==='ArrowDown'||key==='s'))game.duck();}
+ else if(kind==='bike'){if(key==='ArrowDown'||key==='s'){input.duck=true;if(!e.repeat)game.duck();}}
  // Dunes and vines are played by holding one key.
  else if(kind==='dune'||kind==='vine'){if([' ','ArrowUp','ArrowDown','w','s'].includes(key))input.hold=true;}
  else{if(key==='ArrowLeft'||key==='a')input.left=true;if(key==='ArrowRight'||key==='d')input.right=true;if(key==='ArrowUp'||key==='w')input.up=true;if(key==='ArrowDown'||key==='s')input.down=true;}
  const runner=kind==='run'||kind==='bike';if(kind!=='dune'&&kind!=='vine'&&!e.repeat&&(key===' '||(key==='ArrowUp'&&runner)||(key==='w'&&runner)))game.jump();
  if(!e.repeat&&e.key==='Escape'){game.pause();ui();}
 });
-window.addEventListener('keyup',e=>{const key=keyOf(e);if([' ','ArrowUp','ArrowDown','w','s'].includes(key))input.hold=false;if(key==='ArrowLeft'||key==='a')input.left=false;if(key==='ArrowRight'||key==='d')input.right=false;if(key==='ArrowUp'||key==='w')input.up=false;if(key==='ArrowDown'||key==='s')input.down=false;});
+window.addEventListener('keyup',e=>{const key=keyOf(e);if(key==='ArrowDown'||key==='s')input.duck=false;if([' ','ArrowUp','ArrowDown','w','s'].includes(key))input.hold=false;if(key==='ArrowLeft'||key==='a')input.left=false;if(key==='ArrowRight'||key==='d')input.right=false;if(key==='ArrowUp'||key==='w')input.up=false;if(key==='ArrowDown'||key==='s')input.down=false;});
 function blur(){last=0;accumulator=0;clearInput();if(game.state==='playing'||game.state==='caught'||game.state==='transition'||game.state==='opening'){game.pause();ui();}}
 window.addEventListener('blur',blur);document.addEventListener('visibilitychange',()=>{if(document.hidden)blur();});let drag=null,holdPointer=null;
 canvas.addEventListener('pointerdown',e=>{
@@ -90,14 +90,14 @@ canvas.addEventListener('pointerdown',e=>{
  if(kind==='run'){game.jump();return;}
  // On the bike, the upper half of the screen jumps and the lower half ducks.
  if(kind==='dune'||kind==='vine'){canvas.setPointerCapture(e.pointerId);input.hold=true;holdPointer=e.pointerId;return;}
- if(kind==='bike'){const box=canvas.getBoundingClientRect();if(e.clientY-box.top<box.height*.55)game.jump();else game.duck();return;}
+ if(kind==='bike'){const box=canvas.getBoundingClientRect();if(e.clientY-box.top<box.height*.55)game.jump();else{canvas.setPointerCapture(e.pointerId);input.duck=true;holdPointer=e.pointerId;game.duck();}return;}
  if(game.state!=='playing')return;
  if(kind==='climb'){const box=canvas.getBoundingClientRect(),x=(e.clientX-box.left)/renderer.scale,player=(renderer.W/2+(game.laneX-1)*37)*3;game.move(x<player?-1:1);return;}
  canvas.setPointerCapture(e.pointerId);drag={id:e.pointerId,x:e.clientX,y:e.clientY,px:game.playerX,py:game.surfY,moved:false};
 });
 canvas.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||game.state!=='playing')return;const dx=(e.clientX-drag.x)/renderer.scale,dy=(e.clientY-drag.y)/renderer.scale,range=game.config.kind==='surf'||game.config.kind==='skate'?155:420;drag.moved=drag.moved||Math.abs(dx)+Math.abs(dy)>8;input.target={x:Math.max(160,Math.min(560,drag.px+dx)),y:Math.max(.1,Math.min(.9,drag.py+dy/range))};});
-canvas.addEventListener('pointerup',e=>{if(e.pointerId===holdPointer){input.hold=false;holdPointer=null;}if(!drag||drag.id!==e.pointerId)return;if(!drag.moved)game.jump();drag=null;input.target=null;});
-for(const event of ['pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>{drag=null;input.target=null;if(holdPointer!==null){input.hold=false;holdPointer=null;}});
+canvas.addEventListener('pointerup',e=>{if(e.pointerId===holdPointer){input.hold=input.duck=false;holdPointer=null;}if(!drag||drag.id!==e.pointerId)return;if(!drag.moved)game.jump();drag=null;input.target=null;});
+for(const event of ['pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>{drag=null;input.target=null;if(holdPointer!==null){input.hold=input.duck=false;holdPointer=null;}});
 function frame(now){
  const elapsed=last?(now-last)/1000:0;last=now;
  // A suspended tab or long stall must not replay a backlog at high speed.
