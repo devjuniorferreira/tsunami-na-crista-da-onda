@@ -20,3 +20,4 @@ footer a{color:#ffb86a}#threatFill{background:#ff8a5a}.progress i{background:#ff
 @media(max-width:600px) and (orientation:portrait){#chapters{grid-template-columns:auto}#phaseList{grid-template-columns:1fr 1fr}}
 html,body{overflow-x:hidden}#stage{max-height:min(780px,calc(100dvh - 140px))}
 @media(max-height:500px) and (orientation:landscape){#stage{max-height:none}}
+#bikeControls{display:flex}#controls #duck{width:125px;font-size:12px;font-weight:bold}

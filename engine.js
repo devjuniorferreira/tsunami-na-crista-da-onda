@@ -5,31 +5,32 @@ const PHASES=[
  {key:'mar',kind:'swim',chase:'shark',goal:420,speed:300,mpu:12/300},
  {key:'predio',kind:'climb',chase:'water',goal:30,speed:170},
  {key:'ceu',kind:'heli',goal:600,speed:420,mpu:18/420},
- {key:'vulcao',kind:'run',chase:'lava',goal:420,speed:285,course:[1000,1650,2250,2800,3400,3900,4450,4950,5400,5900,6450,6900,7450,7950,8450].map((position,i)=>({position,type:i<2||i%3===1?'trunk':'rock'}))}
+ // Downhill by bike: rocks, trunks and lava cracks are jumped, low branches need a duck.
+ {key:'vulcao',kind:'bike',chase:'lava',goal:480,speed:340,course:[[1100,'rock'],[1750,'trunk'],[2400,'branch'],[3000,'rock'],[3600,'branch'],[4200,'crack'],[4800,'trunk'],[5350,'branch'],[5950,'crack'],[6550,'rock'],[7100,'branch'],[7700,'crack'],[8250,'branch'],[8800,'rock'],[9400,'crack'],[9950,'trunk']].map(([position,type])=>({position,type}))}
 ];
-const LOW_OBSTACLES=new Set(['log','trunk']);
-const START_EVENTS=['A onda invadiu a avenida! Corra até a prancha.','PEGOU A PRANCHA! Arraste na água ou use as setas.','DEBAIXO D’ÁGUA! Fuja do tubarão — IMPULSO acelera.','SUBA O PRÉDIO! Troque de coluna para desviar.','DECOLAMOS! Desvie dos meteoros.','É UM VULCÃO! Corra da lava!'];
+const LOW_OBSTACLES=new Set(['log','trunk','crack']);
+const START_EVENTS=['A onda invadiu a avenida! Corra até a prancha.','PEGOU A PRANCHA! Arraste na água ou use as setas.','DEBAIXO D’ÁGUA! Fuja do tubarão — IMPULSO acelera.','SUBA O PRÉDIO! Troque de coluna para desviar.','DECOLAMOS! Desvie dos meteoros.','DESÇA DE BICICLETA! Pule pedras e fendas, abaixe nos galhos.'];
 const CHASE_EVENTS={
  wave:['TROPEÇOU! A onda ficou mais perto.','SEGUNDO TROPEÇO! Mais um e a onda pega você.','A ONDA ALCANÇOU VOCÊ!'],
  shark:['BATEU! O tubarão está chegando…','O TUBARÃO ESTÁ COLADO! Cuidado!','O TUBARÃO TE PEGOU!'],
  water:['ATINGIDO! A água subiu.','A ÁGUA ESTÁ NOS SEUS PÉS!','A ÁGUA TE ALCANÇOU!'],
- lava:['TROPEÇOU! A lava está mais perto.','SEGUNDO TROPEÇO! A lava está colada!','A LAVA TE ALCANÇOU!']
+ lava:['BATEU! A lava está mais perto.','SEGUNDA BATIDA! A lava está colada!','A LAVA TE ALCANÇOU!']
 };
 // Cutscene between phase n and n+1 (the last one ends the current story). Beat: [time, sound, shake, caption].
 const TRANSITIONS=[
  {length:2.8,event:'A PRANCHA! Segure firme…',beats:[[.55,'pickup'],[2.2,'splash']]},
- {length:3.4,event:'A ONDA VAI QUEBRAR!',beats:[[1.1,'crash',1.2,'ENGOLIDO PELA ONDA!'],[2.3,'bubble',0,'Um tubarão… NADE!']]},
+ {length:4.6,event:'Um kit de mergulho boiando! Pegue!',beats:[[.9,'pickup',0,'CILINDRO, MÁSCARA E PÉ DE PATO!'],[1.6,'warning',0,'A ONDA VAI QUEBRAR!'],[2.3,'crash',1.2,'ENGOLIDO PELA ONDA!'],[3.5,'bubble',0,'Respirando pelo cilindro… Um tubarão! NADE!']]},
  {length:3.2,event:'Uma luz lá em cima…',beats:[[.4,'bubble'],[1.55,'splash',0,'Um prédio! Suba até o heliponto!']]},
  {length:3.4,event:'O HELIPONTO!',beats:[[1.35,'pickup',0,'Sabe pilotar? Vai ter que aprender!'],[2,'liftoff']]},
- {length:5,event:'UM METEORO GIGANTE!',beats:[[.2,'warning'],[1.6,'impact',1.3,'FOMOS ATINGIDOS!'],[3.4,'crash',1],[4,'rumble',.6,'Isso não é uma montanha… É UM VULCÃO!']]},
- {length:4,event:'O RIO! PULE!',beats:[[1.4,'splash'],[2,'steam',.3,'A lava esfriou… você sobreviveu!']]}
+ {length:7.6,event:'UM METEORO GIGANTE!',beats:[[.2,'warning'],[1.6,'impact',1.3,'FOMOS ATINGIDOS!'],[3.2,'crash',1,'Pouso forçado no topo da montanha!'],[4,'step',0,'Uma capela… tem alguém aí?'],[4.9,'rumble',.7,'Isso não é uma montanha… É UM VULCÃO!'],[5.7,'pickup',0,'Uma BICICLETA! Desça a montanha!']]},
+ {length:4,event:'O RIO! PULE!',beats:[[1.3,'splash'],[2,'steam',.3,'A lava esfriou… você sobreviveu!']]}
 ];
 class ApocalipseGame {
  constructor(random=Math.random){this.random=random;this.viewWidth=1100;this.start(0);this.state='menu';this.event='';}
  get config(){return PHASES[this.phase];}
  start(phase=0){
   const cfg=PHASES[phase];
-  Object.assign(this,{state:'playing',phase,time:0,distance:0,objects:[],y:0,vy:0,surfY:.5,surfVelocity:0,playerX:300,playerVX:0,health:3,trips:0,invincible:0,spawn:cfg.kind==='climb'?1.4:2.1,intro:phase===0?2.4:2,jumpTime:0,jumpCooldown:0,scroll:0,runCycle:0,speed:0,stumble:0,land:0,jumpBuffer:0,waveFront:110,waveTarget:110,caughtTime:0,shake:0,sounds:[],openingTime:0,openingFade:0,transitionTime:0,transitionFrom:-1,courseIndex:0,tutorialShown:false,lane:1,laneX:1,event:START_EVENTS[phase]});
+  Object.assign(this,{state:'playing',phase,time:0,distance:0,objects:[],y:0,vy:0,surfY:.5,surfVelocity:0,playerX:300,playerVX:0,health:3,trips:0,invincible:0,spawn:cfg.kind==='climb'?1.4:2.1,intro:phase===0?2.4:2,jumpTime:0,jumpCooldown:0,scroll:0,runCycle:0,speed:0,stumble:0,land:0,jumpBuffer:0,waveFront:110,waveTarget:110,caughtTime:0,shake:0,sounds:[],openingTime:0,openingFade:0,transitionTime:0,transitionFrom:-1,courseIndex:0,tutorialShown:false,duckTutorial:false,duckTime:0,duckBuffer:0,lane:1,laneX:1,event:START_EVENTS[phase]});
   this.course=(cfg.course||[]).map(item=>({...item}));
  }
  beginOpening(){this.start(0);this.state='opening';this.event='Uma manhã tranquila na praia…';}
@@ -37,16 +38,18 @@ class ApocalipseGame {
  pause(){if(this.state==='playing'||this.state==='caught'||this.state==='transition'||this.state==='opening'){this.resumeState=this.state;this.state='paused'}else if(this.state==='paused')this.state=this.resumeState||'playing';}
  jump(){
   if(this.state!=='playing'||this.intro>0||this.stumble>0)return;const kind=this.config.kind;
-  if(kind==='run'){this.jumpBuffer=.16;if(this.y===0)this.takeoff();}
+  if(kind==='run'||kind==='bike'){this.jumpBuffer=.16;if(this.y===0)this.takeoff();}
   else if((kind==='surf'||kind==='swim')&&this.jumpTime<=0&&this.jumpCooldown<=0){this.jumpTime=kind==='surf'?.9:.6;this.jumpCooldown=2;this.sounds.push(kind==='surf'?'jump':'dash');}
  }
+ duck(){if(this.state!=='playing'||this.intro>0||this.stumble>0||this.config.kind!=='bike')return;if(this.y===0)this.startDuck();else this.duckBuffer=.16;}
+ startDuck(){if(this.duckTime<=0)this.sounds.push('step');this.duckTime=.5;this.duckBuffer=0;}
  move(direction){if(this.state!=='playing'||this.intro>0||this.config.kind!=='climb')return;const lane=Math.max(0,Math.min(2,this.lane+direction));if(lane!==this.lane){this.lane=lane;this.sounds.push('step');}}
- takeoff(){this.sounds.push('jump');this.vy=620;this.jumpBuffer=0;this.land=0;}
+ takeoff(){this.sounds.push('jump');this.vy=620;this.jumpBuffer=0;this.land=0;this.duckTime=0;}
  hit(obstacle){
   obstacle.hit=true;if(this.invincible>0||this.state!=='playing')return;
   const cfg=this.config;this.sounds.push(cfg.kind==='swim'?'bite':'hit');this.health--;this.invincible=1.7;this.shake=.45;
   if(cfg.chase){
-   this.trips++;this.waveTarget=110+this.trips*65;if(cfg.kind==='run'){this.stumble=1;this.jumpBuffer=0;}
+   this.trips++;this.waveTarget=110+this.trips*65;if(cfg.kind==='run'||cfg.kind==='bike'){this.stumble=1;this.jumpBuffer=0;this.duckBuffer=0;this.duckTime=0;}
    this.event=CHASE_EVENTS[cfg.chase][Math.min(3,this.trips)-1];if(this.trips===3){this.state='caught';this.caughtTime=0;this.waveTarget=415;}
   }else{this.event=cfg.kind==='heli'?'ATINGIDO! O helicóptero está avariado.':'Bateu! Procure uma passagem entre os destroços.';if(this.health<=0){this.state='caught';this.caughtTime=0;}}
  }
@@ -68,19 +71,22 @@ class ApocalipseGame {
   this.invincible=Math.max(0,this.invincible-dt);this.land=Math.max(0,this.land-dt);this.jumpBuffer=Math.max(0,this.jumpBuffer-dt);
   if(this.intro>0){this.intro=Math.max(0,this.intro-dt);return;}
   const kind=this.config.kind;
-  if(kind==='run')this.updateRun(dt);else if(kind==='climb')this.updateClimb(dt);else this.updateSteer(dt,input);
+  if(kind==='run'||kind==='bike')this.updateRun(dt);else if(kind==='climb')this.updateClimb(dt);else this.updateSteer(dt,input);
   if(this.state==='playing'&&this.distance>=this.config.goal)this.finishPhase();
  }
  updateRun(dt){
-  const cfg=this.config;this.stumble=Math.max(0,this.stumble-dt);
-  this.speed+=((this.stumble>0?85:cfg.speed)-this.speed)*(1-Math.exp(-dt*(this.stumble>0?14:6)));
+  const cfg=this.config,bike=cfg.kind==='bike';this.stumble=Math.max(0,this.stumble-dt);this.duckTime=Math.max(0,this.duckTime-dt);this.duckBuffer=Math.max(0,this.duckBuffer-dt);
+  this.speed+=((this.stumble>0?(bike?120:85):cfg.speed)-this.speed)*(1-Math.exp(-dt*(this.stumble>0?14:6)));
   const travel=this.speed*dt;this.scroll+=travel;this.distance+=travel*12/260;
   if(this.jumpBuffer>0&&this.y===0&&this.stumble===0)this.takeoff();
   const wasAirborne=this.y>0;this.vy-=(this.vy>0?1550:2050)*dt;this.y=Math.max(0,this.y+this.vy*dt);
-  if(this.y===0){this.vy=0;if(wasAirborne){this.land=.16;this.sounds.push('land');}this.runCycle+=travel/148;}
+  if(this.y===0){this.vy=0;if(wasAirborne){this.land=.16;this.sounds.push('land');if(this.duckBuffer>0&&this.stumble===0)this.startDuck();}this.runCycle+=travel/(bike?120:148);}
   while(this.courseIndex<this.course.length&&this.course[this.courseIndex].position<=this.scroll+this.viewWidth+90){const item=this.course[this.courseIndex++];this.objects.push({x:300+item.position-this.scroll+travel,type:item.type,hit:false});}
-  if(!this.tutorialShown&&this.objects.some(o=>o.x>340&&o.x<420)){this.tutorialShown=true;if(this.phase===0)this.event='PULE AGORA · toque em PULAR ou aperte espaço';}
-  for(const o of this.objects){o.x-=travel;if(!o.hit&&Math.abs(o.x-300)<40&&this.y<(LOW_OBSTACLES.has(o.type)?27:43))this.hit(o);}
+  if(!this.tutorialShown&&this.objects.some(o=>o.x>340&&o.x<420)){this.tutorialShown=true;if(this.phase===0)this.event='PULE AGORA · toque em PULAR ou aperte espaço';if(bike)this.event='PULE A PEDRA · PULAR ou espaço';}
+  if(bike&&!this.duckTutorial&&this.objects.some(o=>o.type==='branch'&&o.x>340&&o.x<480)){this.duckTutorial=true;this.event='GALHO BAIXO! ABAIXE · botão ABAIXAR ou ↓';}
+  // A branch is only passed ducking on the ground; jumping into it hits the head.
+  for(const o of this.objects){o.x-=travel;if(o.hit)continue;const branch=o.type==='branch',near=Math.abs(o.x-300)<(o.type==='crack'?48:40);
+   if(near&&(branch?!(this.duckTime>0&&this.y===0):this.y<(LOW_OBSTACLES.has(o.type)?27:43)))this.hit(o);}
   this.objects=this.objects.filter(o=>o.x>-150);
  }
  updateSteer(dt,input){
@@ -136,7 +142,8 @@ class ApocalipseGame {
   if(t<scene.length)return;
   if(from===PHASES.length-1){this.state='won';this.event='VOCÊ SOBREVIVEU… POR ENQUANTO.';return;}
   const scroll=this.scroll,time=this.time,sounds=this.sounds;this.start(from+1);this.time=time;this.sounds=sounds;
-  if(from===0){this.scroll=scroll;this.intro=0;this.speed=350;}else this.intro=1.2;
+  // The ride continues straight out of the cutscenes that end in motion.
+  if(from===0){this.scroll=scroll;this.intro=0;this.speed=350;}else if(from===4){this.intro=0;this.speed=PHASES[5].speed*.8;}else this.intro=1.2;
  }
 }
 if(typeof module!=='undefined')module.exports={ApocalipseGame,PHASES,TRANSITIONS};

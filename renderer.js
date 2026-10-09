@@ -24,17 +24,18 @@ class PixelRenderer {
  strip(c,offset,y){const w=c.width,o=((Math.round(offset)%w)+w)%w;for(let x=-o;x<this.W;x+=w)this.c.drawImage(c,x,Math.round(y));}
  alpha(a,draw){const c=this.c,before=c.globalAlpha;c.globalAlpha=Math.max(0,Math.min(1,a));draw();c.globalAlpha=before;}
  spin(img,x,y,angle){const c=this.c;c.save();c.translate(Math.round(x),Math.round(y));c.rotate(angle);c.drawImage(img,-Math.round(img.width/2),-Math.round(img.height/2));c.restore();}
- hero(name,i,x,y){const set=Art.hero[name],f=Array.isArray(set)?set[((i%set.length)+set.length)%set.length]:set;this.c.drawImage(f,Math.round(x-24),Math.round(y-46));}
+ hero(name,i,x,y){const set=Art.hero[name],f=Array.isArray(set)?set[((i%set.length)+set.length)%set.length]:set;this.c.drawImage(f,Math.round(x-f.width/2),Math.round(y-46));}
  fill(color,a=1){if(a>0)this.alpha(a,()=>this.rect(0,0,this.W,200,color));}
  blob(x,y,r,color){const c=this.c;c.fillStyle=color;x=Math.round(x);y=Math.round(y);r=Math.max(1,Math.round(r));for(let j=-r;j<=r;j++){const w=Math.round(Math.sqrt(r*r-j*j));c.fillRect(x-w,y+j,w*2+1,1);}}
  group(a,draw){if(a<=0)return;const fx=this.fx||(this.fx=document.createElement('canvas'));if(fx.width!==this.W||fx.height!==200){fx.width=this.W;fx.height=200;}const fc=fx.getContext('2d'),main=this.c;fc.setTransform(1,0,0,1,0,0);fc.clearRect(0,0,fx.width,200);this.c=fc;try{draw();}finally{this.c=main;}this.alpha(a,()=>main.drawImage(fx,0,0));}
 
  /* ---------- Shared pieces ---------- */
  // A tsunami (or lava) wall, drawn column by column, with a curling lip and spray at the front.
- wall(front,groundY,crestY,kind,t){
+ // tilt raises the surface behind the front, so a flow can pour down a slope.
+ wall(front,groundY,crestY,kind,t,tilt=0){
   const c=this.c,k=WALLS[kind],face=16,lip=kind==='wave'?12:6;front=Math.round(front);
   for(let x=Math.min(front,this.W+lip);x>=0;x--){
-   const u=front-x;let top=u<face?crestY+(groundY-crestY)*(1-u/face)**2:crestY+Math.sin(x*.21+t*3.2)*1.6+Math.min((groundY-crestY)*.45,(u-face)*.4);top=Math.round(top);
+   const u=front-x;let top=u<face?crestY+(groundY-crestY)*(1-u/face)**2:crestY+Math.sin(x*.21+t*3.2)*1.6+Math.min((groundY-crestY)*.45,(u-face)*.4);top=Math.round(top-Math.max(0,u)*tilt);
    c.fillStyle=u<2?k[0]:u<6?k[1]:u<14?k[2]:u<40?k[3]:k[4];c.fillRect(x,top,1,200-top);
    if(u>3){const s1=(u*5+Math.floor(t*40))%46;c.fillStyle=k[5];c.fillRect(x,top+4+s1,1,3);if(u>12&&x%3===0)c.fillRect(x,top+4+(s1+23)%46,1,2);}
    c.fillStyle=k[6];c.fillRect(x,top,1,u<face?1:2);
@@ -90,11 +91,9 @@ class PixelRenderer {
   for(let x=-(Math.round(scroll)%40);x<W;x+=40)this.rect(x,182,16,2,'#e8cf8f');
  }
  runPhase(g){
-  const t=g.time,lava=g.phase===5,scroll=g.scroll/PX;
-  if(lava)this.forest(g,scroll);else this.avenue(g,scroll);
-  if(!lava){const bx=X(300+Math.max(0,300-g.distance)*260/12);if(bx<this.W+30){this.foot(Art.rack,bx,GROUND+2);this.foot(Art.boardUp,bx-1,GROUND-6);}}
-  else{const rx=X(300+Math.max(0,g.config.goal-g.distance)*260/12);if(rx<this.W+10)this.river(rx,t);}
-  for(const o of g.objects)this.foot({log:Art.log,cooler:Art.cooler,rock:Art.rock,trunk:Art.trunk}[o.type],X(o.x),GROUND+2);
+  const t=g.time,scroll=g.scroll/PX;this.avenue(g,scroll);
+  const bx=X(300+Math.max(0,300-g.distance)*260/12);if(bx<this.W+30){this.foot(Art.rack,bx,GROUND+2);this.foot(Art.boardUp,bx-1,GROUND-6);}
+  for(const o of g.objects)this.foot({log:Art.log,cooler:Art.cooler}[o.type],X(o.x),GROUND+2);
   this.alpha(.35,()=>this.rect(90+Math.min(4,g.y/30),GROUND,20-Math.min(10,g.y/15),2,'#10141c'));
   const y=GROUND-g.y/PX;
   if(g.state==='caught')this.spin(Art.hero.stumbleA,100-g.caughtTime*10,y-20+g.caughtTime*14,g.caughtTime*3);
@@ -105,9 +104,8 @@ class PixelRenderer {
    else if(g.speed<20)this.hero('idle',0,100,y);
    else this.hero('run',Math.floor(g.runCycle*8),100,y);
   }
-  if(g.stumble>0)for(let i=0;i<6;i++){const u=(t*2+i*.17)%1;this.rect(92-u*14,GROUND-u*6,2,1,lava?'#8a6a4a':'#c9b48e');}
-  this.wall(X(g.waveFront),GROUND+4,lava?62:52,lava?'lava':'wave',t);
-  if(lava)this.embers(g,X(g.waveFront));
+  if(g.stumble>0)for(let i=0;i<6;i++){const u=(t*2+i*.17)%1;this.rect(92-u*14,GROUND-u*6,2,1,'#c9b48e');}
+  this.wall(X(g.waveFront),GROUND+4,52,'wave',t);
   this.shade(g);
  }
 
@@ -149,8 +147,8 @@ class PixelRenderer {
   if(g.jumpTime>0)for(let i=0;i<10;i++)this.rect(px-18-i*3,py-10+Math.sin(i+t*20)*2,2,1,'#e8fffb');
   this.sharkY+=(py-12-this.sharkY)*.06;
   const sx=g.state==='caught'?Math.min(px-28,X(g.waveFront)-30+g.caughtTime*40):X(g.waveFront)-30;
-  if(g.state==='caught'){this.spin(Art.hero.stumbleA,px,py-10,Math.sin(g.caughtTime*12)*.4);this.center(Art.shark[2],sx,this.sharkY);this.fill('#a81e2a',Math.min(.35,g.caughtTime*.4));}
-  else{if(!this.blink(g))this.hero('swim',Math.floor(g.runCycle*(g.jumpTime>0?8:4)),px,py);this.center(Art.shark[Math.floor(t*5)%2],sx,this.sharkY+Math.sin(t*3)*2);}
+  if(g.state==='caught'){this.spin(Art.hero.diveTumble,px,py-10,Math.sin(g.caughtTime*12)*.4);this.center(Art.shark[2],sx,this.sharkY);this.fill('#a81e2a',Math.min(.35,g.caughtTime*.4));}
+  else{if(!this.blink(g))this.hero('dive',Math.floor(g.runCycle*(g.jumpTime>0?8:4)),px,py);this.center(Art.shark[Math.floor(t*5)%2],sx,this.sharkY+Math.sin(t*3)*2);}
   this.shade(g);
  }
 
@@ -197,24 +195,86 @@ class PixelRenderer {
   this.center(Art.heli[g.surfVelocity<-.2?0:g.surfVelocity>.2?2:1],px,py);this.rotor(px,py,t);
  }
 
- /* ---------- Phase 6: volcano and forest ---------- */
- forest(g,scroll){
-  const W=this.W,t=g.time;
-  this.img(this.skyLayer('volcano',['#170a12','#341020','#5e1824','#9a2a24','#d24a26','#e8743a']),0,0);
-  const vx=Math.round(W*.66-scroll*.02);
-  this.foot(this.layer('volcano-cone',170,120,(s,w,h)=>{s.poly([[0,h],[62,14],[100,10],[170,h]],'#3b2128');s.poly([[100,10],[170,h],[120,h],[92,40]],'#2a171d');s.dither(40,20,90,100,'#52292f',.35);s.poly([[62,14],[100,10],[96,16],[66,18]],'#ff8a2a');for(const [x0,len] of [[74,60],[88,90],[96,46]])for(let k=0;k<len;k++)s.plot(x0+Math.round(Math.sin(k*.15)*3+k*.15),18+k,k%3?'#ff6a2a':'#ffb03a');}),vx,152);
-  const crater=vx-4;
-  for(let i=0;i<22;i++){const u=(t*.8+i*.045)%1,a=(i*2.4)%3-1.5,x=crater+a*u*28,y=40-u*60+u*u*90;this.rect(x,y,2,2,u<.5?'#ffd36a':'#ff6a2a');}
-  for(let i=0;i<10;i++){const u=(t*.15+i*.1)%1;this.alpha(.55*(1-u),()=>this.blob(crater+Math.sin(i*3)*8+u*30,30-u*40,5+u*12,'#2a1820'));}
-  this.strip(this.farPines(),scroll*.15,100);
-  this.strip(this.layer('forest-mid',264,72,(s,w,h)=>{const r=seededRandom(44);for(let x=8;x<w-8;x+=22+Math.floor(r()*12)){const pine=r()<.6;if(pine){const th=36+Math.floor(r()*14);for(let k=0;k<4;k++){const y=h-th+k*8,ww=3+k*3;s.poly([[x,y-5],[x+ww+1,y+5],[x-ww-1,y+5]],'#1d3326');}s.rect(x-1,h-6,2,6,'#3a2418');}else{s.rect(x-1,h-14,3,14,'#3a2418');s.disc(x,h-20,8,'#22402c');s.disc(x-5,h-16,5,'#22402c');s.disc(x+5,h-16,5,'#1d3326');}}s.dither(0,0,w,h,'#3a1a1c',.12);}),scroll*.45,90);
-  this.rect(0,160,W,4,'#3f5a2a');for(let x=-(Math.round(scroll)%7);x<W;x+=7)this.rect(x,158,1,2,'#56783a');
-  this.strip(this.layer('dirt',128,36,(s,w,h)=>{s.vgrad(0,0,w,h,['#4e3426','#3a271d','#2a1c16']);const r=seededRandom(19);for(let k=0;k<26;k++)s.ellipse(r()*w,4+r()*(h-6),1+r()*2,1,'#5e463a');}),scroll,164);
-  for(let i=0;i<16;i++){const x=((i*47-t*10-scroll*.6)%W+W)%W,y=(i*29+t*25)%200;this.rect(x,y,1,1,i%3?'#b8aaa8':'#ff9a4a');}
+ /* ---------- Phase 6: downhill by bike, chased by lava ---------- */
+ // The trail is a steady slope with rolling bumps, pinned at the rider (x=100) so the camera follows him.
+ slope(){return Math.min(.17,46/Math.max(1,this.W-100));}
+ bump(wx){return Math.sin(wx*.034)*4+Math.sin(wx*.081+1)*1.6;}
+ groundY(x,scroll){return 150+(x-100)*this.slope()+this.bump(x+scroll)-this.bump(100+scroll);}
+ volcanoCone(){return this.layer('volcano-cone',170,120,(s,w,h)=>{s.poly([[0,h],[62,14],[100,10],[170,h]],'#3b2128');s.poly([[100,10],[170,h],[120,h],[92,40]],'#2a171d');s.dither(40,20,90,100,'#52292f',.35);s.poly([[62,14],[100,10],[96,16],[66,18]],'#ff8a2a');for(const [x0,len] of [[74,60],[88,90],[96,46]])for(let k=0;k<len;k++)s.plot(x0+Math.round(Math.sin(k*.15)*3+k*.15),18+k,k%3?'#ff6a2a':'#ffb03a');});}
+ eruption(cx,cy,t,a=1){
+  for(let i=0;i<22;i++){const u=(t*.8+i*.045)%1,s=(i*2.4)%3-1.5;this.alpha(a,()=>this.rect(cx+s*u*28,cy-u*60+u*u*90,2,2,u<.5?'#ffd36a':'#ff6a2a'));}
+  for(let i=0;i<10;i++){const u=(t*.15+i*.1)%1;this.alpha(.55*(1-u)*a,()=>this.blob(cx+Math.sin(i*3)*8+u*30,cy-10-u*40,5+u*12,'#2a1820'));}
  }
  farPines(){return this.layer('pines-far',200,60,(s,w,h)=>{const r=seededRandom(12);for(let x=0;x<w;x+=9){const th=18+Math.floor(r()*30);s.poly([[x,h],[x+5,h-th],[x+10,h]],'#2a1520');}});}
- embers(g,front){for(let i=0;i<10;i++){const u=(g.time*1.2+i*.1)%1;this.rect(front-10-i*5+Math.sin(i+g.time*3)*3,GROUND-30-u*50,1,1,u<.5?'#ffd36a':'#ff6a2a');}}
- river(x,t){this.rect(x,159,this.W-x+10,41,'#2a6f8a');this.rect(x,159,this.W-x+10,2,'#9fd8d2');for(let k=0;k<6;k++)for(let xx=x+((t*20+k*9)%18);xx<this.W;xx+=18)this.rect(xx,165+k*6,6,1,'#5aa3b2');this.rect(x-3,158,4,42,'#5a3a28');}
+ downhill(scroll,t,lift,riverX=null){
+  const W=this.W,c=this.c,slope=this.slope(),gy=x=>this.groundY(x,scroll);
+  this.img(this.skyLayer('volcano',['#170a12','#341020','#5e1824','#9a2a24','#d24a26','#e8743a']),0,0);
+  // The volcano stays behind, up the mountain: the background rises as the rider descends.
+  const vx=Math.round(W*.2-scroll*.015),vy=Math.round(150-lift);this.foot(this.volcanoCone(),vx,vy);this.eruption(vx-4,vy-108,t);
+  this.strip(this.farPines(),scroll*.12,Math.round(112-lift*.4));this.rect(0,Math.round(171-lift*.4),W,40,'#2a1520');
+  for(let id=Math.floor((scroll*.8-30)/34);id*34-scroll*.8<W+30;id++){const x=id*34-scroll*.8+(((id*11)%13)+13)%13,v=((id%3)+3)%3;this.foot(Art.pine[v],x,150+(x-100)*slope-7-v*2);}
+  for(let x=0;x<W;x++){
+   if(riverX!==null&&x>=riverX)break;const top=Math.round(gy(x)),wx=Math.floor(x+scroll);
+   c.fillStyle='#3a271d';c.fillRect(x,top,1,200-top);c.fillStyle='#2a1c16';c.fillRect(x,top+18,1,200-top);
+   c.fillStyle='#56783a';c.fillRect(x,top,1,1);c.fillStyle='#3f5a2a';c.fillRect(x,top+1,1,2);
+   if(((wx*13)%17+17)%17===0){c.fillStyle='#5e463a';c.fillRect(x,top+6+((wx*7)%9+9)%9,2,1);}
+  }
+  if(riverX!==null&&riverX<W+10){const lvl=Math.round(gy(riverX))+4;this.rect(riverX,lvl,W-riverX+10,200-lvl,'#2a6f8a');this.rect(riverX,lvl,W-riverX+10,2,'#9fd8d2');for(let k=0;k<6;k++)for(let xx=riverX+((t*20+k*9)%18);xx<W;xx+=18)this.rect(xx,lvl+6+k*6,6,1,'#5aa3b2');this.foot(Art.rock,riverX-4,lvl+1);}
+  for(let i=0;i<16;i++){const x=((i*47-t*10-scroll*.6)%W+W)%W,y=(i*29+t*25)%200;this.rect(x,y,1,1,i%3?'#b8aaa8':'#ff9a4a');}
+ }
+ // Rider sprites are rotated around the wheels' contact point.
+ riderAt(img,x,y,angle){this.spin(img,x+Math.sin(angle)*26,y-Math.cos(angle)*26,angle);}
+ lavaFlow(front,scroll,t){
+  const gy=this.groundY(front,scroll);this.wall(front,gy+4,gy-44,'lava',t,this.slope());
+  for(let i=0;i<10;i++){const u=(t*1.2+i*.1)%1;this.rect(front-10-i*5+Math.sin(i+t*3)*3,gy-36-u*46,1,1,u<.5?'#ffd36a':'#ff6a2a');}
+ }
+ bikePhase(g){
+  const t=g.time,scroll=g.scroll/PX,gy=x=>this.groundY(x,scroll),riverX=X(300+(g.config.goal-g.distance)*260/12);
+  this.downhill(scroll,t,g.distance*.05,riverX<this.W+10?riverX:null);
+  for(const o of g.objects){const x=X(o.x),y=Math.round(gy(x));
+   if(o.type==='crack'){for(let i=-8;i<=8;i++){const top=Math.round(gy(x+i)),d=Math.abs(i)<6?9:5;this.rect(x+i,top,1,d,'#1c0c0c');this.rect(x+i,top+d-3,1,3,(i+Math.floor(t*8))%4?'#f47a2a':'#ffd36a');}for(let i=0;i<4;i++){const u=(t*1.5+i*.25)%1;this.alpha(1-u,()=>this.rect(x-4+i*3,y-u*10,1,1,'#ffb03a'));}}
+   else if(o.type==='branch')this.foot(Art.branch,x+5,y+2);
+   else this.foot(o.type==='rock'?Art.rock:Art.trunk,x,y+2);}
+  const ground=gy(100),cy=ground-g.y/PX,lean=Math.atan((gy(101)-gy(99))/2),angle=g.y>0?lean*.4-Math.max(-.25,Math.min(.25,g.vy/2400)):lean;
+  this.alpha(.35,()=>this.rect(88+Math.min(4,g.y/30),Math.round(ground)-1,26-Math.min(12,g.y/15),2,'#10141c'));
+  if(g.state==='caught')this.riderAt(Art.rider.pedal[0],100-g.caughtTime*10,cy+g.caughtTime*12,-g.caughtTime*3);
+  else if(!this.blink(g)){
+   const img=g.duckTime>0?Art.rider.duck:g.y>0?Art.rider.stand:Art.rider.pedal[Math.floor(g.runCycle*4)%4];
+   this.riderAt(img,100,cy,angle+(g.stumble>0?Math.sin(t*22)*.22:0));
+  }
+  if(g.stumble>0)for(let i=0;i<6;i++){const u=(t*2+i*.17)%1;this.rect(86-u*14,ground-u*6,2,1,'#8a6a4a');}
+  this.lavaFlow(X(g.waveFront),scroll,t);
+  this.shade(g);
+ }
+
+ /* ---------- The summit: crash landing beside a chapel ---------- */
+ summit(g,t){
+  const W=this.W,plateau=112,heli=[Math.round(W*.5),104],chapelX=Math.round(W*.76),door=chapelX-4,edge=Math.round(W*.9),crater=[Math.round(W*.31),25];
+  this.img(this.skyLayer('volcano',['#170a12','#341020','#5e1824','#9a2a24','#d24a26','#e8743a']),0,0);
+  this.strip(this.farPines(),0,150);this.rect(0,209-50,W,50,'#2a1520');
+  this.img(this.layer('summit',W,200,(s,w,h)=>{
+   s.poly([[0,h],[0,118],[w*.14,68],[w*.26,27],[w*.36,25],[w*.42,plateau],[w*.9,plateau],[w,plateau+44],[w,h]],'#54443f');
+   s.poly([[w*.36,25],[w*.42,plateau],[w*.34,plateau+6],[w*.31,40]],'#3e3231');
+   s.dither(0,plateau+20,w,60,'#3e3231',.45);s.dither(0,plateau+50,w,60,'#2e2426',.6);
+   s.rect(w*.5,plateau+1,w*.4,2,'#6a5a4c');
+   s.poly([[w*.26,27],[w*.36,25],[w*.35,31],[w*.27,31]],'#2a1a1c');s.rect(w*.42,plateau,w*.48,3,'#5e5a52');s.rect(w*.42,plateau,w*.48,1,'#7a7468');
+   const r=seededRandom(9);for(let k=0;k<30;k++){const x=r()*w,y=plateau+12+r()*80;s.poly([[x,y-5],[x+3,y],[x-3,y]],'#2b3a2a');}for(let k=0;k<40;k++){const x=r()*w*.42,y=40+r()*150;if(y>118-x/(w*.14)*50)s.rect(x,y,2,1,'#6e5a52');}
+  }),0,0);
+  this.foot(Art.chapel,chapelX,plateau+1);
+  // From the rumble on, the crater wakes up and lava starts down toward the plateau.
+  const wake=ease((t-4.9)/.8);
+  if(wake>0){this.alpha(wake,()=>{this.rect(crater[0]-12,crater[1]+2,26,3,'#ff8a2a');this.rect(crater[0]-8,crater[1]+1,18,1,'#ffd36a');});this.eruption(crater[0],crater[1]+4,g.time,wake);
+   const flow=ease((t-5.1)/2);for(let k=0;k<flow*60;k++){const f=k/60,x=crater[0]+16+f*(W*.42-crater[0]-16),y=crater[1]+4+f*(plateau-crater[1]-4);this.rect(x-1,y,3,2,k%3?'#f47a2a':'#ffd36a');}}
+  if(t<3.2){const f=ease((t-1.6)/1.6),hx=W*.95+(heli[0]-W*.95)*f,hy=-15+(heli[1]+15)*f*f;this.group(.75,()=>{for(let i=0;i<10;i++){const u=(g.time*1.6+i*.1)%1;this.blob(hx+u*16,hy-u*26,2+u*5,'#2a2228');}});this.spin(Art.heli[1],hx,hy,-t*9);}
+  else{this.spin(Art.heli[1],heli[0],heli[1],.3);this.group(.5,()=>{for(let i=0;i<6;i++){const u=(g.time*.7+i*.17)%1;this.blob(heli[0]+u*8,heli[1]-6-u*30,2+u*5,'#3a3236');}});
+   if(t<3.8)this.group(1-(t-3.2)/.6,()=>{for(let i=0;i<14;i++){const p=(t-3.2)/.6;this.blob(heli[0]+(i-7)*p*5,heli[1]+6-Math.sin(p*3)*(4+i%4*3),2,'#8a7a70');}});}
+  const out=W*.56;
+  if(t>=3.4&&t<3.8)this.hero('land',0,out,plateau);
+  else if(t>=3.8&&t<4.5)this.hero('run',Math.floor(t*14),out+ease((t-3.8)/.7)*(door-out),plateau);
+  if(t>=4.5&&t<5.8)this.rect(door-4,plateau-14,8,14,'#120a08');
+  if(t>=5.7){const a=ease((t-5.7)/.5),b=ease((t-6.2)/.5),x=door+a*(edge-door)+b*(W*.18),y=plateau+b*W*.18*(44/(W*.1)),ang=b>0?Math.atan(44/(W*.1))*Math.min(1,b*3):0;
+   this.riderAt(Art.rider.pedal[Math.floor(t*12)%4],x,y,ang);}
+ }
 
  /* ---------- Opening: the meteor falls into the sea ---------- */
  opening(g){
@@ -267,13 +327,20 @@ class PixelRenderer {
    if(t>=.7){const l=ease((t-.7)/1.5),y=GROUND-Math.sin(l*Math.PI)*40-(GROUND-water+2)*l;this.foot(Art.board,100,y+3);this.hero(l<.5?'jumpUp':l<1?'fall':'surf',0,100,y);}
    if(t>2.2)this.splash(100,water,Math.min(1,(t-2.2)/.6));
   }else if(from===1){
-   if(t<1.9){this.waterBase(g,g.scroll/PX);const k=ease(t/1.1),px=X(g.playerX),py=X(396+g.surfY*155);this.foot(Art.board,px,py+3);this.hero('surfDown',0,px,py);this.wall(X(148)+k*(W+30),150,40-k*60,'wave',g.time);}
-   if(t>1.1&&t<2.2)this.fill('#f2fbf7',Math.min(1,(t-1.1)/.3)*(1-ease((t-1.9)/.3)));
-   if(t>=1.9){this.underwater(g,g.scroll/PX);const s=ease((t-1.9)/1.5);this.spin(Art.hero.stumbleA,W*.4,30+s*70,t*5);for(let i=0;i<12;i++){const u=(t*1.3+i*.08)%1;this.rect(W*.4+Math.sin(i*2)*10,30+s*70-u*40,2,2,'#cdf6f4');}this.fill('#ffffff',1-ease((t-1.9)/.4));}
+   // A dive kit floats by just before the wave breaks: the surfer grabs it and suits up.
+   const sc=(g.scroll+t*350)/PX;
+   if(t<3.1){this.waterBase(g,sc);const px=X(g.playerX),py=X(396+g.surfY*155),got=t>=.9;
+    if(!got){const k=ease(t/.9),kx=W+20+(px+8-W-20)*k,ky=py+Math.round(Math.sin(t*6));this.foot(Art.diveKit,kx,ky+2);this.rect(kx-16,ky+1,32,1,'#cfeee6');}
+    else if(t<1.5)for(let i=0;i<8;i++){const a=i*.8+t*4,r=8+(t-.9)*30;this.alpha(1-(t-.9)/.6,()=>this.rect(px+Math.cos(a)*r,py-18+Math.sin(a)*r*.7,2,2,'#fff3b0'));}
+    for(let i=0;i<10;i++){const u=(t*1.7+i*.1)%1;this.rect(px-16-u*22,py+1-u*4+u*u*6,2-Math.round(u),1,'#e4f6de');}
+    this.foot(Art.board,px,py+3);this.hero(got?'surfGear':'surfDown',0,px,py);
+    const k=ease((t-1.2)/1.1);this.wall(X(148)+k*(W+30),150,40-k*60,'wave',g.time);}
+   if(t>2.3&&t<3.4)this.fill('#f2fbf7',Math.min(1,(t-2.3)/.3)*(1-ease((t-3.1)/.3)));
+   if(t>=3.1){this.underwater(g,sc);const s=ease((t-3.1)/1.5);this.spin(Art.hero.diveTumble,W*.4,30+s*70,t*5*(1-s*.8));for(let i=0;i<12;i++){const u=(t*1.3+i*.08)%1;this.rect(W*.4+Math.sin(i*2)*10,30+s*70-u*40,2,2,'#cdf6f4');}this.fill('#ffffff',1-ease((t-3.1)/.4));}
   }else if(from===2){
-   if(t<1.55){this.underwater(g,g.scroll/PX);const s=ease(t/1.5);this.spin(Art.hero.swim0,W*.45,140-s*150,-1.2);for(let i=0;i<10;i++){const u=(t*1.5+i*.1)%1;this.rect(W*.45+Math.sin(i*2)*8,140-s*150+u*30,2,2,'#cdf6f4');}}
+   if(t<1.55){this.underwater(g,g.scroll/PX);const s=ease(t/1.5);this.spin(Art.hero.dive[0],W*.45,140-s*150,-1.2);for(let i=0;i<10;i++){const u=(t*1.5+i*.1)%1;this.rect(W*.45+Math.sin(i*2)*8,140-s*150+u*30,2,2,'#cdf6f4');}}
    else{this.tower(g,0);this.rect(0,150,W,50,'#2a7f9c');for(let x=0;x<W;x+=3)this.rect(x,150+Math.round(Math.sin(x*.25+g.time*4)),3,1,'#cdf2ec');const c=ease((t-1.9)/1.3),x=Math.round(W/2-37);
-    if(t<1.9){this.hero('swim0',0,x,158);this.rect(x-14,151,28,10,'#2a7f9c');}else this.hero('climb',Math.floor((t-1.9)*8),x,158-c*40);
+    if(t<1.9){this.hero('dive',0,x,158);this.rect(x-14,151,28,10,'#2a7f9c');}else this.hero('climb',Math.floor((t-1.9)*8),x,158-c*40);
     if(t<2.2)this.splash(x,150,Math.min(1,(t-1.55)/.6),12);
     this.fill('#ffffff',1-ease((t-1.55)/.3));}
   }else if(from===3){
@@ -288,25 +355,19 @@ class PixelRenderer {
     this.inferno(g,g.scroll/PX);const k=ease((t-.2)/1.4),mx=W+30-k*(W+30-W*.38),my=-30+k*110,sz=1+k*3;
     this.center(Art.heli[1],W*.35,80);this.rotor(W*.35,80,g.time);this.fill('#ff7a3a',k*.35);
     this.meteorTrail(mx,my,-(W*.6),110,40*sz,g.time,sz);this.c.save();this.c.translate(Math.round(mx),Math.round(my));this.c.scale(sz,sz);this.c.drawImage(Art.meteor[2],-11,-11);this.c.restore();
-   }else{
-    // Cut to the mountain where the helicopter goes down: it is a sleeping volcano.
-    const mx=Math.round(W*.5),wreck=[mx-60,128],man=[mx-38,101];
-    this.img(this.skyLayer('volcano',['#170a12','#341020','#5e1824','#9a2a24','#d24a26','#e8743a']),0,0);this.strip(this.farPines(),0,100);this.rect(0,158,W,42,'#24121a');
-    this.foot(this.layer('mountain',220,140,(s,w,h)=>{s.poly([[0,h],[90,10],[130,8],[220,h]],'#4a4544');s.poly([[130,8],[220,h],[160,h],[118,30]],'#353131');s.dither(20,20,190,120,'#5c5653',.3);s.poly([[90,10],[130,8],[124,15],[95,15]],'#5a3a32');const r=seededRandom(6);for(let k=0;k<26;k++){const x=r()*w,y=h-r()*40,top=Math.round(140-Math.min(x,w-x)/90*130);if(y>top+6)s.poly([[x,y-6],[x+3,y],[x-3,y]],'#24402c');}}),mx,200);
-    if(t>3.9){const glow=ease((t-3.9)/.8);this.alpha(glow,()=>{this.rect(mx-18,67,36,3,'#ff8a2a');this.rect(mx-12,66,24,1,'#ffd36a');});this.group(glow*.8,()=>{for(let i=0;i<8;i++){const u=(g.time*.5+i*.12)%1;this.blob(mx-6+Math.sin(i*2)*6+u*12,62-u*40,3+u*8,'#3a2830');}});}
-    if(t<3.4){const f=ease((t-1.6)/1.8),hx=W*.12+(wreck[0]-W*.12)*f,hy=-10+(wreck[1]+10)*f*f;this.group(.75,()=>{for(let i=0;i<10;i++){const u=(g.time*1.6+i*.1)%1;this.blob(hx-u*16,hy-u*26,2+u*5,'#2a2228');}});this.spin(Art.heli[1],hx,hy,t*9);}
-    else{this.spin(Art.heli[1],wreck[0],wreck[1],2.4);this.group(.5,()=>{for(let i=0;i<6;i++){const u=(g.time*.7+i*.17)%1;this.blob(wreck[0]+u*8,wreck[1]-6-u*30,2+u*5,'#3a3236');}});this.hero(t>3.9?'shock':'land',0,man[0],man[1]);
-     if(t<4)this.group(1-(t-3.4)/.6,()=>{for(let i=0;i<14;i++){const p=(t-3.4)/.6;this.blob(wreck[0]+(i-7)*p*5,wreck[1]-Math.sin(p*3)*(4+i%4*3),2,'#8a7a70');}});}
-   }
+   }else if(t<6.7)this.summit(g,t);
+   // The camera follows the bike down: the same trail the next phase starts on, lava pouring in behind.
+   if(t>6.3){const k=ease((t-6.3)/.4),scroll=(t-7.6)*300/PX;this.group(k,()=>{this.downhill(scroll,g.time,0);this.riderAt(Art.rider.pedal[Math.floor(t*12)%4],100,this.groundY(100,scroll),Math.atan((this.groundY(101,scroll)-this.groundY(99,scroll))/2));this.lavaFlow(-30+ease((t-6.7)/.9)*(X(110)+30),scroll,g.time);});}
    if(t>1.6&&t<2.4)this.fill('#fff6e0',1-ease((t-1.6)/.8));
   }else{
-   this.forest(g,g.scroll/PX);const rx=Math.round(W*.55);this.river(rx,g.time);
+   // The bike flies off the bank into the river; the lava reaches the water and cools into stone.
+   const scroll=g.scroll/PX,gy=x=>this.groundY(x,scroll),rx=100,lvl=Math.round(gy(rx))+4;this.downhill(scroll,g.time,g.distance*.05,rx);
    const front=X(g.waveFront)+ease(t/2)*(rx-X(g.waveFront)-6),cool=ease((t-2)/1.4);
-   if(t<1.4){const j=ease((t-.6)/.8),x=100+ease(t/1.4)*(rx+18-100),y=GROUND-Math.sin(j*Math.PI)*36+j*14;this.hero(t<.6?'run':j<.5?'jumpUp':'fall',Math.floor(t*14),x,y);}
-   else{this.hero('swim1',0,rx+24,176+Math.sin(g.time*3));this.rect(rx+4,170,40,30,'#2a6f8a');this.rect(rx+4,170,40,1,'#9fd8d2');}
-   if(t>1.4&&t<2)this.splash(rx+24,160,(t-1.4)/.6);
-   this.wall(front,GROUND+4,62+cool*20,cool>.5?'stone':'lava',g.time*(1-cool));
-   if(t>2)this.group(.7*(1-ease((t-3.2)/.8)),()=>{for(let i=0;i<14;i++){const u=(g.time*.8+i*.07)%1;this.blob(front-30+i*4+Math.sin(i+g.time)*3,140-u*60,2+u*6,'#e6ebe8');}});
+   if(t<1.3){const j=ease(t/1.3),x=rx+j*W*.3,y=gy(rx)-Math.sin(j*Math.PI)*38+j*(lvl+10-gy(rx));this.riderAt(j<.5?Art.rider.stand:Art.rider.pedal[0],x,y,j*.9-.3);}
+   else{const x=rx+W*.3;this.hero('swim1',0,x,lvl+16+Math.sin(g.time*3));this.rect(x-20,lvl+10,40,30,'#2a6f8a');this.rect(x-20,lvl+10,40,1,'#9fd8d2');for(let i=0;i<5;i++){const u=(g.time*1.2+i*.2)%1;this.rect(x-12+i*3,lvl+20-u*12,1,1,'#cdf6f4');}}
+   if(t>1.3&&t<1.9)this.splash(rx+W*.3,lvl,(t-1.3)/.6);
+   const gf=this.groundY(front,scroll);this.wall(front,gf+4,gf-44+cool*14,cool>.5?'stone':'lava',g.time*(1-cool),this.slope());
+   if(t>2)this.group(.7*(1-ease((t-3.2)/.8)),()=>{for(let i=0;i<14;i++){const u=(g.time*.8+i*.07)%1;this.blob(front-30+i*4+Math.sin(i+g.time)*3,gf-30-u*60,2+u*6,'#e6ebe8');}});
   }
  }
 
@@ -318,10 +379,10 @@ class PixelRenderer {
   if(state!==g.state||state==='lost')g=Object.assign(Object.create(g),{state:state==='lost'?'caught':state});
   if(state==='opening')this.opening(g);
   else if(state==='transition')this.transition(g);
-  else{const kind=PHASES[g.phase].kind;if(kind==='run')this.runPhase(g);else if(kind==='surf')this.surfPhase(g);else if(kind==='swim')this.swimPhase(g);else if(kind==='climb')this.climbPhase(g);else this.heliPhase(g);}
+  else{const kind=PHASES[g.phase].kind;if(kind==='run')this.runPhase(g);else if(kind==='bike')this.bikePhase(g);else if(kind==='surf')this.surfPhase(g);else if(kind==='swim')this.swimPhase(g);else if(kind==='climb')this.climbPhase(g);else this.heliPhase(g);}
   if(g.openingFade>0)this.fill('#0a1e2b',g.openingFade/.35);
   c.setTransform(1,0,0,1,0,0);
  }
  // Warm every cached layer before the first playable frame.
- prepare(Game){const g=new Game(()=>.5);for(const time of [3,6,9]){g.beginOpening();g.openingTime=time;this.draw(g);}for(let k=0;k<6;k++){g.start(k);this.draw(g);g.state='transition';g.transitionFrom=k;for(const time of [.5,2,3.5])g.transitionTime=time,this.draw(g);}}
+ prepare(Game){const g=new Game(()=>.5);for(const time of [3,6,9]){g.beginOpening();g.openingTime=time;this.draw(g);}for(let k=0;k<6;k++){g.start(k);this.draw(g);g.state='transition';g.transitionFrom=k;for(const time of [.5,2,3.5,5,7])g.transitionTime=time,this.draw(g);}}
 }

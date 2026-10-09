@@ -25,16 +25,17 @@ test('a press just before landing is remembered, but holding is not required',()
  let landed=false,rebounded=false;for(let i=0;i<30;i++){g.update(1/120);if(g.y===0)landed=true;if(landed&&g.y>0&&g.vy>0){rebounded=true;break;}}
  assert(rebounded);
 });
-test('both running courses can be cleared on phone and desktop with a consistent jump cue',()=>{
+test('both courses can be cleared on phone and desktop with consistent jump and duck cues',()=>{
  for(const phase of [0,5])for(const width of [660,1100,1500]){
   const g=new Game(()=>.5);g.start(phase);g.intro=0;g.viewWidth=width;let jumps=0;const seen=new Set();
   for(let frame=0;frame<120*45&&g.state==='playing';frame++){
    for(const o of g.objects)seen.add(o.type);
-   if(g.y===0&&g.objects.some(o=>!o.hit&&o.x>300&&o.x<=410)){g.jump();jumps++;}
-   g.update(1/120);assert.equal(g.trips,0,`fair jump window in phase ${phase} at width ${width}`);
+   if(g.y===0&&g.objects.some(o=>!o.hit&&o.type!=='branch'&&o.x>300&&o.x<=410)){g.jump();jumps++;}
+   if(g.y===0&&g.duckTime===0&&g.objects.some(o=>!o.hit&&o.type==='branch'&&o.x>300&&o.x<=380)){g.duck();jumps++;}
+   g.update(1/120);assert.equal(g.trips,0,`fair window in phase ${phase} at width ${width}`);
   }
   assert.equal(g.state,'transition');assert.equal(jumps,PHASES[phase].course.length);
-  assert(phase===0?seen.has('log')&&seen.has('cooler'):seen.has('trunk')&&seen.has('rock'));
+  assert(phase===0?seen.has('log')&&seen.has('cooler'):['trunk','rock','branch','crack'].every(type=>seen.has(type)));
  }
 });
 
@@ -75,7 +76,8 @@ test('building: lane switches are smooth, every falling row leaves a free column
 test('helicopter: meteors cost hearts and the phase ends with the giant-meteor cutscene',()=>{
  const g=new Game(()=>.5);g.start(4);g.intro=0;g.spawn=999;
  for(let n=0;n<3;n++){g.invincible=0;g.objects=[{x:g.playerX,y:g.surfY,type:'meteor',size:1,hit:false,seed:0}];g.update(1/120);}assert.equal(g.state,'caught');
- g.start(4);g.intro=0;g.speed=420;g.distance=599.9;g.update(1/120);assert.equal(g.state,'transition');g.sounds=[];tick(g,1.7);assert(g.sounds.includes('impact'));tick(g,3.5);assert.equal(g.phase,5);assert.equal(g.state,'playing');
+ g.start(4);g.intro=0;g.speed=420;g.distance=599.9;g.update(1/120);assert.equal(g.state,'transition');g.sounds=[];tick(g,1.7);assert(g.sounds.includes('impact'));tick(g,5.7);assert.equal(g.state,'transition');tick(g,.3);assert.equal(g.phase,5);assert.equal(g.state,'playing');
+ assert.equal(g.intro,0,'the bike is already rolling out of the cutscene');assert(g.speed>200);assert(g.sounds.includes('pickup'));
 });
 
 test('a careful player can go from the beach to the end of the story',()=>{
@@ -85,7 +87,8 @@ test('a careful player can go from the beach to the end of the story',()=>{
   const input={};const kind=g.config.kind;
   if(g.state==='playing'&&!seen.includes(g.phase))seen.push(g.phase);
   if(g.state==='playing'){
-   if(kind==='run'&&g.y===0&&g.objects.some(o=>!o.hit&&o.x>300&&o.x<=410))g.jump();
+   if((kind==='run'||kind==='bike')&&g.y===0&&g.objects.some(o=>!o.hit&&o.type!=='branch'&&o.x>300&&o.x<=410))g.jump();
+   if(kind==='bike'&&g.y===0&&g.objects.some(o=>!o.hit&&o.type==='branch'&&o.x>300&&o.x<=380))g.duck();
    if(kind==='surf'||kind==='swim'||kind==='heli'){
     const ahead=g.objects.filter(o=>!o.hit&&o.x>g.playerX-70&&o.x<g.playerX+(kind==='heli'?330:260));
     let best=.5,bestGap=-1;for(let y=.1;y<=.9;y+=.05){const gap=ahead.length?Math.min(...ahead.map(o=>{const t=Math.max(0,(o.x-g.playerX)/(g.speed-(o.vx||0)));return Math.abs((o.type==='jelly'?o.y+Math.sin(g.time*2+o.seed*7)*.06:o.y)+(o.vy||0)*t-y);})):1;if(gap>bestGap+.001){bestGap=gap;best=y;}}
@@ -97,4 +100,20 @@ test('a careful player can go from the beach to the end of the story',()=>{
   g.update(1/120,input);frames++;
  }
  assert.equal(g.state,'won');assert.deepEqual(seen,[0,1,2,3,4,5]);
+});
+
+test('bike: ducking passes under branches, jumping into one hits, and a duck pressed in the air waits for landing',()=>{
+ const ride=()=>{const g=new Game(()=>.5);g.start(5);g.intro=0;g.spawn=999;g.course=[];tick(g,1);return g;};
+ const branch=g=>{g.objects=[{x:300,type:'branch',hit:false}];g.update(1/120);};
+ let g=ride();branch(g);assert.equal(g.trips,1,'riding upright into a branch');assert(g.stumble>0);
+ g=ride();g.duck();assert(g.duckTime>0);branch(g);assert.equal(g.trips,0);
+ g=ride();g.jump();tick(g,.15);branch(g);assert.equal(g.trips,1,'a jump does not clear a branch');
+ g=ride();g.jump();tick(g,.62);assert(g.y>0);g.duck();assert.equal(g.duckTime,0);while(g.y>0)g.update(1/120);assert(g.duckTime>0,'buffered duck on landing');
+ g=ride();g.objects=[{x:300,type:'crack',hit:false}];g.update(1/120);assert.equal(g.trips,1);g=ride();g.jump();tick(g,.15);g.objects=[{x:300,type:'crack',hit:false}];g.update(1/120);assert.equal(g.trips,0);
+ g=ride();g.duck();g.jump();assert.equal(g.duckTime,0,'jumping cancels the duck');
+ const run=new Game(()=>.5);run.start(0);run.intro=0;run.duck();assert.equal(run.duckTime,0,'no ducking on foot');
+});
+test('the surf cutscene hands over the dive kit before the wave breaks',()=>{
+ const g=new Game(()=>.5);g.start(1);g.intro=0;g.speed=350;g.distance=719.99;g.update(1/120);g.sounds=[];
+ tick(g,1);assert.deepEqual(g.sounds,['pickup']);tick(g,1.5);assert(g.sounds.includes('crash'));tick(g,2.2);assert.equal(g.phase,2);assert.equal(g.state,'playing');
 });
