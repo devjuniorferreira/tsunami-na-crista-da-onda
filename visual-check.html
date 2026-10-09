@@ -13,7 +13,7 @@ const objs={
  2:[{x:520,y:.3,type:'jelly',seed:1},{x:700,y:.7,type:'wreck',variant:1,seed:2},{x:900,y:.45,type:'jelly',seed:3}],
  3:[{lane:0,y:200,type:'pot',warn:0},{lane:2,y:-90,type:'ac',warn:.3},{lane:1,y:60,type:'tv',warn:0}],
  4:[{x:560,y:.3,type:'meteor',size:1.3,vx:-100,vy:.1,seed:1},{x:800,y:.7,type:'meteor',size:.8,vx:-60,vy:.2,seed:2},{x:420,y:.05,type:'meteor',size:1,vx:-60,vy:.4,seed:3}],
- 5:[{x:430,type:'trunk'},{x:780,type:'rock'}]
+ 5:[{x:430,type:'crack'},{x:700,type:'branch'},{x:950,type:'rock'}]
 };
 const play=section('cenas','Fases');
 for(let p=0;p<6;p++)scene(play,'Fase '+(p+1),(g,r)=>{g.start(p);g.intro=0;g.time=3.3;g.scroll=1600;g.speed=260;g.runCycle=.3;g.objects=objs[p].map(o=>({...o,hit:false}));if(p===1||p===2){g.surfY=.5;g.playerX=300;}if(p===3)g.distance=10;if(p===4){g.surfY=.45;g.health=2;}if(p===0||p===5){g.waveFront=175;g.trips=1;}});
@@ -22,15 +22,20 @@ scene(extra,'Fase 1 — pulo',(g)=>{g.start(0);g.intro=0;g.time=2;g.scroll=900;g
 scene(extra,'Fase 1 — tropeço',(g)=>{g.start(0);g.intro=0;g.time=2;g.scroll=900;g.speed=90;g.stumble=.6;g.trips=2;g.waveFront=240;});
 scene(extra,'Fase 1 — fim (prancha)',(g)=>{g.start(0);g.intro=0;g.time=2;g.scroll=6200;g.speed=260;g.distance=290;g.runCycle=.6;});
 scene(extra,'Fase 4 — topo',(g)=>{g.start(3);g.intro=0;g.time=2;g.scroll=29.3*150;g.distance=29.3;g.runCycle=.5;});
-scene(extra,'Fase 6 — rio',(g)=>{g.start(5);g.intro=0;g.time=2;g.scroll=8800;g.distance=410;g.runCycle=.2;});
+scene(extra,'Fase 6 — rio',(g)=>{g.start(5);g.intro=0;g.time=2;g.scroll=10100;g.distance=470;g.runCycle=.2;});
+scene(extra,'Fase 6 — abaixado',(g)=>{g.start(5);g.intro=0;g.time=2;g.scroll=3000;g.speed=340;g.duckTime=.3;g.objects=[{x:310,type:'branch',hit:false}];});
+scene(extra,'Fase 6 — pulo',(g)=>{g.start(5);g.intro=0;g.time=2;g.scroll=3300;g.speed=340;g.y=100;g.vy=100;g.objects=[{x:330,type:'crack',hit:false}];});
+scene(extra,'Fase 6 — pego',(g)=>{g.start(5);g.state='caught';g.caughtTime=.6;g.waveFront=400;g.scroll=2000;});
 scene(extra,'Fase 3 — tubarão pegou',(g)=>{g.start(2);g.state='caught';g.caughtTime=.8;g.waveFront=400;g.surfY=.5;});
 const open=section('abertura','Abertura');
 for(const t of [1,3.2,4.6,5.2,5.9,7,8.6,9.8])scene(open,'t='+t,(g)=>{g.beginOpening();g.openingTime=t;g.time=t;});
 const trans=section('transicoes','Transições');
-for(let k=0;k<6;k++)for(const t of (k===4?[.9,2.2,3.0,4.4]:[.4,1.5,2.6]))scene(trans,`${k+1}→${k+2} t=${t}`,(g)=>{g.start(k);g.state='transition';g.transitionFrom=k;g.transitionTime=t;g.time=t;g.scroll=1200;g.waveFront=110;});
+const TIMES={1:[.5,1.1,2.0,2.6,3.8],4:[.9,2.2,3.5,4.2,5.3,6.0,6.5,7.3],5:[.6,1.6,3.2]};
+for(let k=0;k<6;k++)for(const t of (TIMES[k]||[.4,1.5,2.6]))scene(trans,`${k+1}→${k+2} t=${t}`,(g)=>{g.start(k);g.state='transition';g.transitionFrom=k;g.transitionTime=t;g.time=t;g.scroll=1200;g.waveFront=110;});
 const spr=section('sprites','Sprites');
 function showSprite(name,img,zoom=4){const f=document.createElement('figure'),c=document.createElement('canvas');c.className='sprite';c.width=img.width;c.height=img.height;c.getContext('2d').drawImage(img,0,0);c.style.width=img.width*zoom+'px';const cap=document.createElement('figcaption');cap.textContent=name;f.append(c,cap);spr.append(f);}
 Art.hero.run.forEach((c,i)=>showSprite('run'+i,c));for(const [k,v] of Object.entries(Art.hero))if(v instanceof HTMLCanvasElement)showSprite(k,v);Art.hero.climb.forEach((c,i)=>showSprite('climb'+i,c));
-for(const k of ['board','boardUp','rack','log','cooler','debris','pot','ac','tv','rock','trunk','palm','chair','paper','helipad'])showSprite(k,Art[k],3);
+for(const k of ['board','boardUp','rack','log','cooler','debris','pot','ac','tv','rock','trunk','palm','chair','paper','helipad','diveKit','chapel','branch','bike'])showSprite(k,Art[k],3);
+Art.hero.dive.forEach((c,i)=>showSprite('dive'+i,c));Art.rider.pedal.forEach((c,i)=>showSprite('pedal'+i,c));showSprite('duck',Art.rider.duck);showSprite('stand',Art.rider.stand);
 for(const k of ['cars','wreck','jelly','shark','meteor','heli','pine','tree'])Art[k].forEach((c,i)=>showSprite(k+i,c,3));
 </script>

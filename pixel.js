@@ -41,19 +41,28 @@ const HEADS={
  right:['..hhhh..','.hhHHhh.','hhhhhhhh','hhhsssss','hhdssske','hhssssss','.hsssms.','..dsss..','...ss...'],
  up:['..hhhh..','.hhHHhh.','hhhhhhs.','hhhssske','hhdsssss','hhsssss.','.hssms..','..dss...','...ss...'],
  shock:['..hhhh..','.hhHHhh.','hhhhhhhh','hhhsssss','hhdsswke','hhssssss','.hsssmm.','..dsmm..','...ss...'],
- back:['..hhhh..','.hhHHhh.','hhhhhhhh','hhhhhhhh','dhhhhhhd','hhhhhhhh','.hhhhhh.','..ssss..','...ss...']
+ back:['..hhhh..','.hhHHhh.','hhhhhhhh','hhhhhhhh','dhhhhhhd','hhhhhhhh','.hhhhhh.','..ssss..','...ss...'],
+ // Diving mask with its strap, and the regulator in the mouth.
+ dive:['..hhhh..','.hhHHhh.','hhhhhhhh','bbbbbbbb','hhdsbggb','hhssbbbb','.hssssrr','..dsssr.','...ss...']
 };
-const HEAD_COLORS={h:PAL.hair,H:PAL.hairHi,s:PAL.skin,d:PAL.skinMid,k:PAL.ink,e:PAL.skin,w:PAL.white,m:'#9c3f3a'};
+const HEAD_COLORS={h:PAL.hair,H:PAL.hairHi,s:PAL.skin,d:PAL.skinMid,k:PAL.ink,e:PAL.skin,w:PAL.white,m:'#9c3f3a',b:'#20242e',g:'#8fd3e8',r:'#f2d14a'};
+const GEAR={tank:'#f2b630',tankDark:'#c98a1e',valve:'#9aa3a8',hose:'#2a2d3a',fin:'#4fd0e0',finDark:'#2a9fb0'};
 function drawHero(s,pose,ox,oy){
  const P=p=>[ox+p[0],oy+p[1]],seg=(a,b,w,c)=>{const [x0,y0]=P(a),[x1,y1]=P(b);s.line(x0,y0,x1,y1,w,c);},mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
- const back=pose.view==='back';
+ const back=pose.view==='back',gear=pose.gear;
  const leg=([root,knee,foot],far)=>{
   seg(root,mix(root,knee,.6),4,far?PAL.shortsDark:PAL.shorts);seg(mix(root,knee,.55),knee,3,far?PAL.skinMid:PAL.skin);seg(knee,foot,3,far?PAL.skinMid:PAL.skin);
+  // Fins continue the shin past the foot, narrowing to the tip.
+  if(gear==='full'){const dx=foot[0]-knee[0],dy=foot[1]-knee[1],l=Math.hypot(dx,dy)||1,tip=k=>[foot[0]+dx/l*k,foot[1]+dy/l*k];seg(foot,tip(4),3,far?GEAR.finDark:GEAR.fin);seg(tip(4),tip(8),2,far?GEAR.finDark:GEAR.fin);return;}
   const [fx,fy]=P(foot);if(back){s.rect(fx-1,fy-1,3,2,far?PAL.shoeDark:PAL.shoe);s.rect(fx-1,fy+1,3,1,PAL.sole);}else{s.rect(fx-1,fy-1,5,2,far?PAL.shoeDark:PAL.shoe);s.rect(fx-1,fy+1,5,1,PAL.sole);}
  };
  const arm=([root,elbow,hand],far)=>{seg(root,mix(root,elbow,.45),3,far?PAL.shirtDark:PAL.shirt);seg(mix(root,elbow,.4),elbow,3,far?PAL.skinMid:PAL.skin);seg(elbow,hand,2,far?PAL.skinMid:PAL.skin);const [hx,hy]=P(hand);s.rect(hx-1,hy-1,2,2,far?PAL.skinMid:PAL.skin);};
  const sh=pose.sh,hip=pose.hip;
  if(!back){arm(pose.farArm,true);leg(pose.farLeg,true);}else{leg(pose.farLeg,false);}
+ // The air tank sits on the back: offset from the torso to the side opposite the face.
+ let valve=null;
+ if(gear){const dx=sh[0]-hip[0],dy=sh[1]-hip[1],l=Math.hypot(dx,dy)||1,ux=dx/l,uy=dy/l,nx=uy*4.5,ny=-ux*4.5,a=[hip[0]+nx+ux,hip[1]+ny+uy],b=[sh[0]+nx-ux,sh[1]+ny-uy];
+  seg(a,b,5,GEAR.tank);seg(mix(a,b,.25),mix(a,b,.32),5,GEAR.tankDark);valve=[b[0]+ux*2,b[1]+uy*2];seg(b,valve,2,GEAR.valve);}
  seg(hip,sh,back?7:6,PAL.shirt);
  if(!back){const b=[-2,0];seg([hip[0]+b[0],hip[1]],[sh[0]+b[0],sh[1]+1],2,PAL.shirtDark);}else seg([hip[0],hip[1]-1],[sh[0],sh[1]+3],1,PAL.shirtDark);
  const [hx,hy]=P(hip);s.rect(hx-(back?3:3),hy-1,back?7:6,3,PAL.shorts);
@@ -61,7 +70,23 @@ function drawHero(s,pose,ox,oy){
  if(back)arm(pose.farArm,false);
  seg(sh,mix(sh,pose.head,.55),2,PAL.skinMid);
  arm(pose.nearArm,false);
- const [cx,cy]=P(pose.head);s.grid(HEADS[pose.headType||'right'],HEAD_COLORS,cx-4,cy-5);
+ const [cx,cy]=P(pose.head);s.grid(HEADS[gear?'dive':pose.headType||'right'],HEAD_COLORS,cx-4,cy-5);
+ if(valve){const [vx,vy]=P(valve);s.line(vx,vy,cx+3,cy+2,1,GEAR.hose);}
+}
+// Riding pose: hips on the saddle, hands on the bar, feet on pedals turning around the crank (two-bone leg).
+function bikePose(f,style){
+ const a=f/4*Math.PI*2,crank=[-1,-7],pedal=k=>[crank[0]+Math.cos(a+k)*4,crank[1]+Math.sin(a+k)*4];
+ const body={sit:{hip:[-4,-20],sh:[3,-30],head:[6,-35]},duck:{hip:[-5,-18],sh:[5,-24],head:[9,-27],headType:'right'},stand:{hip:[-2,-23],sh:[4,-32],head:[6,-37]}}[style];
+ const knee=(hip,foot)=>{const dx=foot[0]-hip[0],dy=foot[1]-hip[1],d=Math.min(17.5,Math.hypot(dx,dy)),h=Math.sqrt(Math.max(0,81-(d/2)**2)),l=Math.hypot(dx,dy)||1;return[hip[0]+dx/2+(-dy/l)*h*-1,hip[1]+dy/2+(dx/l)*h*-1];};
+ const fix=k=>style==='sit'?pedal(k):[crank[0]+Math.cos(k)*4,crank[1]];
+ const near=fix(0),far=fix(Math.PI),hand=[9,-24],elbow=style==='duck'?[8,-20]:[8,-27];
+ return{hip:body.hip,sh:body.sh,head:body.head,headType:body.headType,nearLeg:[body.hip,knee(body.hip,near),near],farLeg:[body.hip,knee(body.hip,far),far],nearArm:[body.sh,elbow,hand],farArm:[body.sh,[elbow[0]-1,elbow[1]],[hand[0]-1,hand[1]]]};
+}
+function drawBike(s,ox,oy,spin){
+ const P=(x,y)=>[ox+x,oy+y],L=(a,b,w,c)=>s.line(...P(...a),...P(...b),w,c),frame='#d8443a',dark='#8f2a28';
+ for(const [wx,wy] of [[-12,-7],[13,-7]]){const [cx,cy]=P(wx,wy);s.disc(cx,cy,7,'#262b33');s.disc(cx,cy,5,0);for(let k=0;k<3;k++){const a=spin+k*Math.PI/3;s.line(Math.round(cx-Math.cos(a)*5),Math.round(cy-Math.sin(a)*5),Math.round(cx+Math.cos(a)*5),Math.round(cy+Math.sin(a)*5),1,'#9aa3a8');}s.plot(cx,cy,'#e8e4d0');}
+ L([-1,-7],[-12,-7],1,dark);L([-4,-17],[-12,-7],1,dark);L([-1,-7],[-4,-19],2,frame);L([-3,-17],[9,-19],2,frame);L([-1,-7],[9,-17],2,frame);L([9,-19],[11,-12],2,frame);L([11,-12],[13,-7],1,'#3b3d4f');
+ L([9,-20],[10,-24],1,'#3b3d4f');L([8,-24],[11,-24],1,'#3b3d4f');s.rect(...P(-7,-21),7,2,'#2a2d3a');s.disc(...P(-1,-7),2,'#3b3d4f');
 }
 // Run cycle: contact, down, pass, up for each leg; arms swing against the legs.
 const RUN_LEGS=[[[4,7],[6,16]],[[3,7],[0,15]],[[1,8],[-3,16]],[[-2,8],[-7,14]],[[-4,6],[-10,9]],[[0,7],[-6,8]],[[5,5],[3,11]],[[6,6],[8,13]]];
@@ -108,6 +133,13 @@ const Art={
   A.hero.run=[0,1,2,3,4,5,6,7].map(f=>frame(runPose(f)));
   for(const [name,pose] of Object.entries(POSES))A.hero[name]=frame(pose);
   A.hero.swim=[0,1,2,3].map(f=>A.hero['swim'+f]);A.hero.climb=[0,1,2,1].map(f=>frame(climbPose(f)));
+  // Diving gear: wider frames so the fins fit; hero() centres any frame width.
+  const wide=pose=>sprite(64,50,s=>drawHero(s,pose,32,46));
+  A.hero.dive=[0,1,2,3].map(f=>wide({...POSES['swim'+f],gear:'full'}));A.hero.diveTumble=wide({...POSES.stumbleA,gear:'full'});A.hero.surfGear=frame({...POSES.surfDown,gear:'tank'});
+  // Rider and bike in one sprite (wheels touch the bottom row), pedalling in four frames.
+  const ride=(f,style)=>sprite(56,52,s=>{drawBike(s,28,50,f*.8);drawHero(s,bikePose(f,style),28,50);});
+  A.rider={pedal:[0,1,2,3].map(f=>ride(f,'sit')),duck:ride(0,'duck'),stand:ride(1,'stand')};
+  A.bike=sprite(56,52,s=>drawBike(s,28,50,0));
   A.board=sprite(30,7,s=>{s.poly([[1,3],[6,1],[24,1],[29,3],[24,5],[6,5]],'#fff0c4');s.rect(4,3,22,1,'#e8673f');s.rect(6,4,18,1,'#37939a');});
   A.log=sprite(26,11,s=>{s.rect(1,1,22,9,'#8a5a3b');s.rect(2,2,20,2,'#b07a4f');s.rect(3,7,18,1,'#6b4430');s.ellipse(21,5,4,4,'#e0ad73');s.ellipse(21,5,2,2,'#a8734a');});
   A.cooler=sprite(20,17,s=>{s.rect(1,4,18,12,'#e0593c');s.rect(1,4,18,2,'#f08a5a');s.rect(0,1,20,4,'#f2e6c8');s.rect(7,7,6,3,'#f2e6c8');s.rect(1,14,18,2,'#a63e2b');});
@@ -155,6 +187,11 @@ const Art={
   A.paper=sprite(12,12,s=>{s.rect(0,0,11,10,'#f3ecd3');s.rect(5,0,1,10,'#c9c3ad');for(let k=0;k<4;k++){s.rect(1,2+k*2,3,1,'#88928c');s.rect(7,2+k*2,3,1,'#88928c');}s.rect(1,1,3,1,'#40505a');});
   A.boardUp=sprite(9,32,s=>{s.poly([[4,1],[7,6],[7,26],[4,30],[1,26],[1,6]],'#fff0c4');s.rect(4,4,1,24,'#e8673f');s.rect(3,6,1,20,'#37939a');});
   A.rack=sprite(22,40,s=>{s.rect(2,8,2,31,'#7a5a3e');s.rect(17,8,2,31,'#7a5a3e');s.rect(1,7,20,3,'#a5794f');s.rect(5,1,12,5,'#e8673f');s.rect(6,2,10,1,'#f2d14a');},false);
+  A.diveKit=sprite(28,15,s=>{s.rect(3,7,17,6,GEAR.tank);s.disc(3,10,3,GEAR.tank);s.disc(19,10,3,GEAR.tank);s.rect(7,7,2,6,GEAR.tankDark);s.rect(21,8,3,4,GEAR.valve);s.rect(24,9,2,2,GEAR.hose);s.poly([[4,6],[9,2],[13,2],[9,6]],GEAR.fin);s.poly([[11,6],[16,2],[20,2],[16,6]],GEAR.finDark);s.rect(14,4,7,3,'#20242e');s.rect(15,5,5,1,'#8fd3e8');});
+  A.chapel=sprite(40,46,s=>{s.rect(4,20,26,25,'#efe6d2');s.rect(26,20,4,25,'#cbbfa6');s.poly([[1,21],[17,9],[33,21]],'#a8453a');s.poly([[17,9],[33,21],[27,21]],'#7d3029');s.rect(28,6,9,39,'#e2d8c2');s.rect(35,6,2,39,'#bfb39a');s.poly([[27,7],[32.5,0],[38,7]],'#7d3029');s.rect(30,10,5,6,'#3b2a24');s.rect(31,11,3,3,'#d6a640');s.rect(32,0,1,1,'#f2d14a');
+   s.rect(11,30,10,15,'#5a3a28');s.rect(12,31,8,14,'#3b2a24');s.rect(16,31,1,14,'#5a3a28');s.rect(7,25,3,4,'#6ea4c4');s.rect(24,25,3,4,'#6ea4c4');s.rect(15,14,3,1,'#f4f4f4');s.rect(16,12,1,5,'#f4f4f4');});
+  A.cross=sprite(5,7,s=>{s.rect(2,0,1,7,'#f2d14a');s.rect(0,2,5,1,'#f2d14a');},false);
+  A.branch=sprite(46,60,s=>{s.rect(34,0,6,60,'#5a3a28');s.rect(35,0,2,60,'#7a5238');s.line(35,20,4,24,3,'#5a3a28');s.line(16,22,8,17,2,'#5a3a28');for(const [x,y,r] of [[6,22,5],[13,18,5],[21,21,4],[29,19,4],[9,15,4]])s.disc(x,y,r,'#2e5236');s.dither(2,12,30,8,'#4c7a4a',.35);});
   A.helipad=sprite(60,8,s=>{s.ellipse(30,4,28,3,'#4b5260');s.ellipse(30,4,25,2,'#606878');s.rect(25,3,2,3,'#f2d14a');s.rect(33,3,2,3,'#f2d14a');s.rect(27,4,6,1,'#f2d14a');},false);
  }
 };

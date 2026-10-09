@@ -14,8 +14,8 @@ const INFO=[
   lost:['A ÁGUA<br><em>TE ALCANÇOU.</em>','Olhe os avisos “!” no alto: eles mostram de onde as coisas vão cair.','← → ou toque nos lados da tela para trocar de coluna.']},
  {chapter:'05 / O CÉU',objective:'DESVIE DOS METEOROS',unit:'m',jump:'',tip:'ARRASTE OU USE AS SETAS: PILOTAR',
   lost:['O HELICÓPTERO<br><em>CAIU.</em>','Os meteoros vêm da direita e de cima. Fique mais à esquerda para ter tempo de reagir.','Arraste ou use as setas para pilotar.']},
- {chapter:'06 / O VULCÃO',objective:'FUJA DA LAVA',unit:'m',jump:'PULAR ↗',tip:'↑ / ESPAÇO / TOQUE: PULAR · 3 TROPEÇOS = FIM',threat:['A LAVA ESTÁ DESCENDO','A LAVA ESTÁ MAIS PERTO','PERIGO · ÚLTIMA CHANCE','A LAVA TE ALCANÇOU'],
-  lost:['A LAVA<br><em>TE PEGOU.</em>','Pedras são altas e troncos são baixos: pule no tempo certo e chegue ao rio.','↑, espaço ou PULAR para saltar.']}
+ {chapter:'06 / O VULCÃO',objective:'DESÇA ATÉ O RIO',unit:'m',jump:'PULAR ↗',tip:'↑ / ESPAÇO: PULAR · ↓: ABAIXAR · TOQUE EM CIMA OU EMBAIXO',threat:['A LAVA ESTÁ DESCENDO','A LAVA ESTÁ MAIS PERTO','PERIGO · ÚLTIMA CHANCE','A LAVA TE ALCANÇOU'],
+  lost:['A LAVA<br><em>TE PEGOU.</em>','Pule pedras, troncos e fendas de lava. Nos galhos baixos, abaixe — pular faz você bater a cabeça.','↑, espaço ou PULAR para saltar. ↓ ou ABAIXAR para passar sob os galhos.']}
 ];
 const NAMES=['A PRAIA','O SURFE','O FUNDO DO MAR','O PRÉDIO','O CÉU','O VULCÃO'];
 const text=(id,value)=>{const el=$(id);if(el.textContent!==value)el.textContent=value;};
@@ -39,7 +39,7 @@ function ui(){
  text('chapter',info.chapter);text('objective',info.objective);
  text('life',cfg.chase?`${game.trips} / 3 ${cfg.kind==='run'?'TROPEÇOS':'BATIDAS'}`:'♥ '.repeat(Math.max(0,game.health))+'♡ '.repeat(3-Math.max(0,game.health)));$('life').classList.toggle('critical',!!cfg.chase&&game.trips===2);
  const goal=cfg.goal,done=Math.min(goal,Math.floor(game.distance));text('meter',`${done} / ${goal} ${info.unit}`);$('bar').style.width=Math.min(100,game.distance/goal*100)+'%';
- const kind=cfg.kind;show('surfControls',kind==='surf'||kind==='swim'||kind==='heli');show('laneControls',kind==='climb');show('jump',!!info.jump);text('jump',info.jump);$('jump').classList.toggle('cooling',(kind==='surf'||kind==='swim')&&game.jumpCooldown>0);
+ const kind=cfg.kind;show('surfControls',kind==='surf'||kind==='swim'||kind==='heli');show('laneControls',kind==='climb');show('bikeControls',kind==='bike');show('jump',!!info.jump);text('jump',info.jump);$('jump').classList.toggle('cooling',(kind==='surf'||kind==='swim')&&game.jumpCooldown>0);
  show('threat',!!cfg.chase&&state!=='menu'&&state!=='won'&&!cinematic);$('threatFill').style.width=Math.min(100,(game.waveFront-80)/2.3)+'%';if(info.threat)text('threatLabel',info.threat[Math.min(3,game.trips)]);
  if(state!=='menu')text('tip',info.tip);
  if(game.event){$('caption').textContent=game.event;messageTime=3.4;game.event='';}
@@ -61,13 +61,15 @@ $('skip').onclick=()=>{game.finishOpening();ui();};
 $('pause').onclick=()=>{game.pause();clearInput();ui();};
 $('jump').addEventListener('pointerdown',e=>{e.preventDefault();game.jump();});
 for(const key of ['up','down']){const b=$(key);b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);input[key]=true;});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>input[key]=false);}
+$('duck').addEventListener('pointerdown',e=>{e.preventDefault();game.duck();});
 $('left').addEventListener('pointerdown',e=>{e.preventDefault();game.move(-1);});$('right').addEventListener('pointerdown',e=>{e.preventDefault();game.move(1);});
 const keyOf=e=>e.key.length===1?e.key.toLowerCase():e.key;
 window.addEventListener('keydown',e=>{
  const key=keyOf(e),kind=game.config.kind;if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Escape'].includes(e.key))e.preventDefault();
  if(kind==='climb'){if(!e.repeat&&(key==='ArrowLeft'||key==='a'))game.move(-1);if(!e.repeat&&(key==='ArrowRight'||key==='d'))game.move(1);}
+ else if(kind==='bike'){if(!e.repeat&&(key==='ArrowDown'||key==='s'))game.duck();}
  else{if(key==='ArrowLeft'||key==='a')input.left=true;if(key==='ArrowRight'||key==='d')input.right=true;if(key==='ArrowUp'||key==='w')input.up=true;if(key==='ArrowDown'||key==='s')input.down=true;}
- if(!e.repeat&&(key===' '||(key==='ArrowUp'&&kind==='run')||(key==='w'&&kind==='run')))game.jump();
+ const runner=kind==='run'||kind==='bike';if(!e.repeat&&(key===' '||(key==='ArrowUp'&&runner)||(key==='w'&&runner)))game.jump();
  if(!e.repeat&&e.key==='Escape'){game.pause();ui();}
 });
 window.addEventListener('keyup',e=>{const key=keyOf(e);if(key==='ArrowLeft'||key==='a')input.left=false;if(key==='ArrowRight'||key==='d')input.right=false;if(key==='ArrowUp'||key==='w')input.up=false;if(key==='ArrowDown'||key==='s')input.down=false;});
@@ -76,6 +78,8 @@ window.addEventListener('blur',blur);document.addEventListener('visibilitychange
 canvas.addEventListener('pointerdown',e=>{
  e.preventDefault();const kind=game.config.kind;
  if(kind==='run'){game.jump();return;}
+ // On the bike, the upper half of the screen jumps and the lower half ducks.
+ if(kind==='bike'){const box=canvas.getBoundingClientRect();if(e.clientY-box.top<box.height*.55)game.jump();else game.duck();return;}
  if(game.state!=='playing')return;
  if(kind==='climb'){const box=canvas.getBoundingClientRect(),x=(e.clientX-box.left)/renderer.scale,player=(renderer.W/2+(game.laneX-1)*37)*3;game.move(x<player?-1:1);return;}
  canvas.setPointerCapture(e.pointerId);drag={id:e.pointerId,x:e.clientX,y:e.clientY,px:game.playerX,py:game.surfY,moved:false};

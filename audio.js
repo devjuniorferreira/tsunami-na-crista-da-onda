@@ -43,11 +43,13 @@ class GameAudio {
   this.master.gain.setTargetAtTime(this.enabled&&active?.6:0,t,.06);
   // Background noise: sea, deep water, wind or rumbling lava depending on the phase.
   const proximity=g.state==='opening'?Math.max(0,(g.openingTime-5)/4):g.config.chase?Math.min(1,(g.waveFront-100)/210):.6;
-  const color={run:g.phase===5?220:380,surf:420,swim:260,climb:520,heli:900}[kind];
+  const color={run:380,surf:420,swim:260,climb:520,heli:900,bike:220}[kind];
   this.ambient.gain.setTargetAtTime(.08+proximity*.25+Math.sin(g.time*1.3)*.012,t,.3);this.filter.frequency.setTargetAtTime(color+proximity*800,t,.3);
   if(this.enabled&&active){
    if(step!==this.step&&kind==='run'&&g.state==='playing'&&g.intro===0&&g.y===0&&g.stumble===0){this.burst(.055,.13,950);this.tone(95,55,.065,.09);}
    if(kind==='heli'&&g.state==='playing'&&Math.abs(g.time-this.rotor)>.09){this.rotor=g.time;this.burst(.06,.12,300);}
+   // Freewheel ticking, faster with speed.
+   if(step!==this.step&&kind==='bike'&&g.state==='playing'&&g.y===0)this.burst(.03,.06,3800,0,'highpass');
    for(const event of events)this.play(event);
   }
   this.step=step;
