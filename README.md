@@ -2,8 +2,7 @@
 
 Jogo em pixel art para navegador. Uma manhã tranquila na praia termina com um meteoro no mar: fuja da onda, do tubarão, da lava, da tempestade e do gelo, e vá ao espaço salvar a Terra. São dez fases.
 
-**▶️ Jogar:** https://devjuniorferreira.github.io/tsunami-na-crista-da-onda/
-
+**▶️ Jogar:** https://github.com/devjuniorferreira/apocalipse.git
 ## Controles
 
 Teclado, toque na tela ou botões na tela. Cada fase explica o controle ao começar. Funciona no computador e no celular.
